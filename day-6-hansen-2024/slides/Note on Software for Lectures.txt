@@ -1,0 +1,67 @@
+I will be using Stata in these lectures. By using Stata, I mean that I will run things in Stata but will make extensive use of Python integration in Stata and user supplied packages.
+
+I have supplied Stata code that will produce most results in the notes. 
+
+I have supplied R code that does similar things to the Stata code for most examples. I will not be opening or looking at the R code, but it is there for your reference and if that is the language you prefer.
+
+If you want to run the code on your own or follow along with anything I end up doing during the lectures, you will need to have Stata set up to work with Python. Using Python with Stata requires Stata 16 or later. 
+
+Everything was tested using scikit-learn v1.2.2 and v1.3.0. Some things may not work with previous versions of scikit-learn.
+
+1) Getting Stata and Python setup:
+
+https://statalasso.github.io/docs/python/
+
+There is also useful guidance through Stata, but I find the above easy to follow and clear.
+
+2) Getting Stata packages I will use:
+
+net install lassopack, from("https://raw.githubusercontent.com/statalasso/lassopack/master/") replace 
+net install pdslasso, from("https://raw.githubusercontent.com/statalasso/pdslasso/master/") replace
+ssc install ivreg2
+ssc install ranktest
+net install pystacked, from(https://raw.githubusercontent.com/aahrens1/pystacked/main) replace
+net install ddml, from(https://raw.githubusercontent.com/aahrens1/ddml/master) replace
+ssc install colorscatter
+ssc install rforest
+ssc install coefplot
+ssc install reghdfe
+ssc install ftools
+
+3) For visualizing trees, I use one Python package - graphviz - that is not part of the default Anaconda distribution. It is not terribly likely that I will run this live during the lecture. To install the package with Anaconda, 
+
+A) Open a Python terminal window 
+B) type	conda install python-graphviz 
+
+OR
+
+install via Anaconda Navigator
+
+4) For trying a couple things with neural nets, I will use tensorflow and keras. To install the package with Anaconda, 
+
+A) Open a Python terminal window
+B) type pip install tensorflow
+
+OR 
+
+install via Anaconda Navigator
+
+5) If things aren't working
+
+Stata packages:
+
+Make sure packages are there
+. ado dir
+
+If package are there, clear things out and try again:
+A) Uninstall packages
+. ado uninstall [xx]
+where xx is the ID of the package to be uninstalled
+B) Restart Stata
+C) Reinstall package
+
+Python packages:
+
+Make sure packages are being installed into the Python environment that is linked to Stata.
+
+I've found Python finicky and unfortunately often have to uninstall and reinstall as I update/change things.

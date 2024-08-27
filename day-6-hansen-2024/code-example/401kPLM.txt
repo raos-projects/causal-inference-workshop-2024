@@ -1,0 +1,988 @@
+----------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  C:\Users\chansen1\Documents\GitHub\NW2022_1Day\Stata Code\401kPLM.txt
+  log type:  text
+ opened on:  26 Jun 2024, 14:22:53
+
+. 
+. clear all
+
+. 
+. timer on 1
+
+.  
+. * Load data. Assumes I am in my code subfolder *
+. use "..\Data\sipp1991.dta", clear 
+
+. 
+. *** Set seed for reproducibility
+. set seed 71423
+
+. 
+. * Normalize inc,age,fsize,educ 
+. replace age = age/64
+variable age was byte now float
+(9,915 real changes made)
+
+. replace inc = inc/250000
+(9,912 real changes made)
+
+. replace fsize = fsize/13
+variable fsize was byte now float
+(9,915 real changes made)
+
+. replace educ = educ/18
+variable educ was byte now float
+(9,915 real changes made)
+
+. 
+. * Create polynomials
+. forvalues i = 2/6 {
+  2.         gen age`i' = age^`i' 
+  3. }
+
+. 
+. forvalues i = 2/8 {
+  2.         gen inc`i' = inc^`i'
+  3. }
+
+. 
+. forvalues i = 2/4 {
+  2.         gen educ`i' = educ^`i'
+  3. }
+
+. 
+. gen fsize2 = fsize^2
+
+. 
+. *** Define some macros for our variables
+. global Y net_tfa
+
+. global X age inc educ fsize marr twoearn db pira hown
+
+. global Xpoly age age2 age3 age4 age5 age6 inc inc2 inc3 inc4 inc5 inc6 inc7 ///
+>         inc8 educ educ2 educ3 educ4 fsize fsize2 marr twoearn db pira hown
+
+. global D e401
+
+. 
+. *** Call ddml package and tell it we want to estimate the partially linear model
+. *** using cross-fitting with five folds and with ten different random splits
+. *** of five folds
+. 
+. ddml init partial, kfolds(5) reps(10)
+
+. 
+. *** add learners for E[Y|X]
+. ddml E[Y|X]: reg $Y $X
+Learner Y1_reg added successfully.
+
+. ddml E[Y|X]: reg $Y $Xpoly
+Learner Y2_reg added successfully.
+
+. ddml E[Y|X]: pystacked $Y c.($X)##c.($X) || method(lassocv)
+Learner Y3_pystacked added successfully.
+
+. ddml E[Y|X]: pystacked $Y c.($X)##c.($X) || method(ridgecv)
+Learner Y4_pystacked added successfully.
+
+. ddml E[Y|X]: pystacked $Y $X || method(rf) ///
+>         opt(n_estimators(500) min_samples_leaf(20) random_state(720))
+Learner Y5_pystacked added successfully.
+
+. ddml E[Y|X]: pystacked $Y $X || method(nnet) ///
+>         opt(hidden_layer_sizes(50 50 50 50) alpha(0) random_state(720))
+Learner Y6_pystacked added successfully.
+
+. 
+. *** add learners for E[D|X]
+. ddml E[D|X]: logit $D $X
+Learner D1_logit added successfully.
+
+. ddml E[D|X]: pystacked $D $Xpoly || method(logit) , type(class)
+Learner D2_pystacked added successfully.
+
+. ddml E[D|X]: pystacked $D c.($X)##c.($X) || method(lassocv) , type(class)
+Learner D3_pystacked added successfully.
+
+. ddml E[D|X]: pystacked $D c.($X)##c.($X) || method(ridgecv) , type(class)
+Learner D4_pystacked added successfully.
+
+. ddml E[D|X]: pystacked $D $X || method(rf) ///
+>         opt(n_estimators(500) min_samples_leaf(20) random_state(720)) , type(class)
+Learner D5_pystacked added successfully.
+
+. ddml E[D|X]: pystacked $D $X || method(nnet) ///
+>         opt(hidden_layer_sizes(50 50 50 50) alpha(0) random_state(720)) , type(class)
+Learner D6_pystacked added successfully.
+
+. ddml E[D|X]: reg $D $X
+Learner D7_reg added successfully.
+
+. ddml E[D|X]: reg $D $Xpoly 
+Learner D8_reg added successfully.
+
+. 
+. ** get info on model specification
+. ddml describe
+
+Model:                  partial, crossfit folds k=5, resamples r=10
+Mata global (mname):    m0
+Dependent variable (Y): net_tfa
+ net_tfa learners:      Y1_reg Y2_reg Y3_pystacked Y4_pystacked Y5_pystacked Y6_pystacked
+D equations (1):        e401
+ e401 learners:         D1_logit D2_pystacked D3_pystacked D4_pystacked D5_pystacked D6_pystacked D7_reg D
+> 8_reg
+
+. 
+. ** cross-fitting
+. ddml crossfit , shortstack
+Cross-fitting E[y|X] equation: net_tfa
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting...completed short-stacking
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting...completed short-stacking
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting...completed short-stacking
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting...completed short-stacking
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting...completed short-stacking
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting...completed short-stacking
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting...completed short-stacking
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting...completed short-stacking
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting...completed short-stacking
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting...completed short-stacking
+Cross-fitting E[D|X] equation: e401
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting...completed short-stacking
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting...completed short-stacking
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting...completed short-stacking
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting...completed short-stacking
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting...completed short-stacking
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting...completed short-stacking
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting...completed short-stacking
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting...completed short-stacking
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting...completed short-stacking
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting...completed short-stacking
+
+. 
+. *** Estimation results
+. ddml estimate, robust
+
+
+Model:                  partial, crossfit folds k=5, resamples r=10
+Mata global (mname):    m0
+Dependent variable (Y): net_tfa
+ net_tfa learners:      Y1_reg Y2_reg Y3_pystacked Y4_pystacked Y5_pystacked Y6_pystacked
+D equations (1):        e401
+ e401 learners:         D1_logit D2_pystacked D3_pystacked D4_pystacked D5_pystacked D6_pystacked D7_reg D
+> 8_reg
+
+DDML estimation results:
+spec  r     Y learner     D learner         b        SE 
+ mse  1  Y4_pystacked  D3_pystacked  9893.152 (1317.244)
+  ss  1  [shortstack]          [ss]  9444.472 (1291.077)
+ mse  2  Y4_pystacked  D3_pystacked  9658.820 (1322.477)
+  ss  2  [shortstack]          [ss]  9226.922 (1301.462)
+ mse  3  Y3_pystacked  D3_pystacked  9432.788 (1323.676)
+  ss  3  [shortstack]          [ss]  9158.178 (1313.544)
+ mse  4  Y3_pystacked  D3_pystacked  9746.587 (1318.094)
+  ss  4  [shortstack]          [ss]  9339.805 (1291.980)
+ mse  5  Y3_pystacked  D3_pystacked  9725.536 (1321.443)
+  ss  5  [shortstack]          [ss]  9334.130 (1285.957)
+ mse  6  Y3_pystacked  D3_pystacked  9580.025 (1310.989)
+  ss  6  [shortstack]          [ss]  9314.057 (1293.178)
+ mse  7  Y4_pystacked  D3_pystacked  9845.653 (1317.893)
+  ss  7  [shortstack]          [ss]  9420.756 (1276.261)
+ mse  8  Y3_pystacked  D3_pystacked  9335.756 (1323.255)
+  ss  8  [shortstack]          [ss]  8943.233 (1294.103)
+ mse  9  Y4_pystacked  D3_pystacked  9782.354 (1332.119)
+  ss  9  [shortstack]          [ss]  9232.634 (1302.330)
+ mse 10  Y3_pystacked  D3_pystacked  9536.780 (1296.849)
+  ss 10  [shortstack]          [ss]  9277.689 (1289.278)
+mse = minimum MSE specification for that resample.
+
+Mean/med    Y learner     D learner         b        SE 
+ mse mn     [min-mse]     [min-mse]  9653.745 (1329.146)
+  ss mn  [shortstack]          [ss]  9269.188 (1300.828)
+ mse md     [min-mse]     [min-mse]  9692.178 (1324.849)
+  ss md  [shortstack]          [ss]  9295.873 (1296.457)
+
+Shortstack DDML model (median over 10 resamples)
+y-E[y|X]  = y-Y_net_tfa_ss                         Number of obs   =      9915
+D-E[D|X]  = D-D_e401_ss 
+------------------------------------------------------------------------------
+             |               Robust
+     net_tfa | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        e401 |   9295.873   1296.457     7.17   0.000     6754.864    11836.88
+------------------------------------------------------------------------------
+Stacking final estimator: nnls1
+
+Summary over 10 resamples:
+       D eqn      mean       min       p25       p50       p75       max
+        e401   9269.1877 8943.2324 9226.9229 9295.8730 9339.8057 9444.4727
+
+. 
+. *** More estimation results
+. ddml estimate, allcombos robust
+
+
+Model:                  partial, crossfit folds k=5, resamples r=10
+Mata global (mname):    m0
+Dependent variable (Y): net_tfa
+ net_tfa learners:      Y1_reg Y2_reg Y3_pystacked Y4_pystacked Y5_pystacked Y6_pystacked
+D equations (1):        e401
+ e401 learners:         D1_logit D2_pystacked D3_pystacked D4_pystacked D5_pystacked D6_pystacked D7_reg D
+> 8_reg
+
+DDML estimation results:
+spec  r     Y learner     D learner         b        SE 
+   1  1        Y1_reg      D1_logit  6174.337 (1462.845)
+   2  1        Y1_reg  D2_pystacked  8917.794 (1422.952)
+   3  1        Y1_reg  D3_pystacked  8928.410 (1352.492)
+   4  1        Y1_reg  D4_pystacked  8164.040 (1337.897)
+   5  1        Y1_reg  D5_pystacked  8830.453 (1363.949)
+   6  1        Y1_reg  D6_pystacked  9420.625 (1388.137)
+   7  1        Y1_reg        D7_reg  5933.209 (1533.534)
+   8  1        Y1_reg        D8_reg -5955.188 (9553.627)
+   9  1        Y2_reg      D1_logit 13177.660 (4774.711)
+  10  1        Y2_reg  D2_pystacked 13532.190 (4992.169)
+  11  1        Y2_reg  D3_pystacked  8901.869 (1392.477)
+  12  1        Y2_reg  D4_pystacked 10795.400 (2572.814)
+  13  1        Y2_reg  D5_pystacked 11230.220 (2780.794)
+  14  1        Y2_reg  D6_pystacked 10458.620 (1951.798)
+  15  1        Y2_reg        D7_reg 14522.310 (5894.849)
+  16  1        Y2_reg        D8_reg  1.08e+05  (6.3e+04)
+  17  1  Y3_pystacked      D1_logit  9356.755 (1344.359)
+  18  1  Y3_pystacked  D2_pystacked  9084.751 (1303.749)
+  19  1  Y3_pystacked  D3_pystacked  9817.648 (1317.627)
+  20  1  Y3_pystacked  D4_pystacked  9495.884 (1295.868)
+  21  1  Y3_pystacked  D5_pystacked  8973.796 (1298.086)
+  22  1  Y3_pystacked  D6_pystacked  8980.306 (1325.802)
+  23  1  Y3_pystacked        D7_reg  9273.518 (1374.935)
+  24  1  Y3_pystacked        D8_reg  -740.024 (6336.149)
+  25  1  Y4_pystacked      D1_logit  9567.403 (1341.062)
+  26  1  Y4_pystacked  D2_pystacked  9019.177 (1299.921)
+* 27  1  Y4_pystacked  D3_pystacked  9893.152 (1317.244)
+  28  1  Y4_pystacked  D4_pystacked  9604.787 (1295.999)
+  29  1  Y4_pystacked  D5_pystacked  8978.941 (1296.579)
+  30  1  Y4_pystacked  D6_pystacked  8937.514 (1323.652)
+  31  1  Y4_pystacked        D7_reg  9483.157 (1369.480)
+  32  1  Y4_pystacked        D8_reg  -530.820 (6170.116)
+  33  1  Y5_pystacked      D1_logit  8327.244 (1447.838)
+  34  1  Y5_pystacked  D2_pystacked  8372.501 (1397.414)
+  35  1  Y5_pystacked  D3_pystacked  9281.498 (1344.465)
+  36  1  Y5_pystacked  D4_pystacked  8830.703 (1332.124)
+  37  1  Y5_pystacked  D5_pystacked  8647.068 (1349.336)
+  38  1  Y5_pystacked  D6_pystacked  9144.133 (1369.743)
+  39  1  Y5_pystacked        D7_reg  8273.934 (1516.871)
+  40  1  Y5_pystacked        D8_reg -5408.413 (9054.457)
+  41  1  Y6_pystacked      D1_logit  9295.758 (1372.543)
+  42  1  Y6_pystacked  D2_pystacked  9199.723 (1319.158)
+  43  1  Y6_pystacked  D3_pystacked  9836.292 (1319.371)
+  44  1  Y6_pystacked  D4_pystacked  9450.663 (1299.473)
+  45  1  Y6_pystacked  D5_pystacked  9031.114 (1304.417)
+  46  1  Y6_pystacked  D6_pystacked  9047.354 (1327.655)
+  47  1  Y6_pystacked        D7_reg  9131.463 (1409.542)
+  48  1  Y6_pystacked        D8_reg -1660.244 (7030.304)
+  ss  1  [shortstack]          [ss]  9444.472 (1291.077)
+   1  2        Y1_reg      D1_logit  6080.242 (1468.687)
+   2  2        Y1_reg  D2_pystacked  8306.683 (1471.578)
+   3  2        Y1_reg  D3_pystacked  8874.374 (1351.707)
+   4  2        Y1_reg  D4_pystacked  8515.883 (1337.352)
+   5  2        Y1_reg  D5_pystacked  8658.190 (1345.472)
+   6  2        Y1_reg  D6_pystacked  9030.431 (1322.121)
+   7  2        Y1_reg        D7_reg  5843.889 (1538.571)
+   8  2        Y1_reg        D8_reg -6982.749 (9319.005)
+   9  2        Y2_reg      D1_logit  1320.432 (7249.732)
+  10  2        Y2_reg  D2_pystacked   631.811 (7619.753)
+  11  2        Y2_reg  D3_pystacked  8249.178 (1397.271)
+  12  2        Y2_reg  D4_pystacked  8794.205 (1336.437)
+  13  2        Y2_reg  D5_pystacked  5063.384 (3692.926)
+  14  2        Y2_reg  D6_pystacked  7065.564 (2184.168)
+  15  2        Y2_reg        D7_reg  -186.606 (8912.091)
+  16  2        Y2_reg        D8_reg -1.59e+05  (9.9e+04)
+  17  2  Y3_pystacked      D1_logit  9140.617 (1389.617)
+  18  2  Y3_pystacked  D2_pystacked  8437.383 (1371.367)
+  19  2  Y3_pystacked  D3_pystacked  9522.019 (1321.919)
+  20  2  Y3_pystacked  D4_pystacked  9947.964 (1307.802)
+  21  2  Y3_pystacked  D5_pystacked  8751.606 (1297.212)
+  22  2  Y3_pystacked  D6_pystacked  9114.986 (1289.698)
+  23  2  Y3_pystacked        D7_reg  9026.180 (1435.844)
+  24  2  Y3_pystacked        D8_reg -3901.127 (7568.189)
+  25  2  Y4_pystacked      D1_logit  9449.337 (1379.418)
+  26  2  Y4_pystacked  D2_pystacked  8476.009 (1357.452)
+* 27  2  Y4_pystacked  D3_pystacked  9658.820 (1322.477)
+  28  2  Y4_pystacked  D4_pystacked 10094.180 (1308.047)
+  29  2  Y4_pystacked  D5_pystacked  8809.672 (1294.380)
+  30  2  Y4_pystacked  D6_pystacked  9186.264 (1286.786)
+  31  2  Y4_pystacked        D7_reg  9339.839 (1420.355)
+  32  2  Y4_pystacked        D8_reg -3234.675 (7182.319)
+  33  2  Y5_pystacked      D1_logit  8195.030 (1454.743)
+  34  2  Y5_pystacked  D2_pystacked  7675.905 (1456.587)
+  35  2  Y5_pystacked  D3_pystacked  9050.717 (1328.504)
+  36  2  Y5_pystacked  D4_pystacked  9270.770 (1313.698)
+  37  2  Y5_pystacked  D5_pystacked  8495.731 (1325.429)
+  38  2  Y5_pystacked  D6_pystacked  9002.998 (1306.156)
+  39  2  Y5_pystacked        D7_reg  8141.188 (1530.171)
+  40  2  Y5_pystacked        D8_reg -7345.983 (9341.667)
+  41  2  Y6_pystacked      D1_logit  9223.094 (1430.991)
+  42  2  Y6_pystacked  D2_pystacked  8608.150 (1403.941)
+  43  2  Y6_pystacked  D3_pystacked  9690.475 (1328.193)
+  44  2  Y6_pystacked  D4_pystacked  9935.901 (1318.718)
+  45  2  Y6_pystacked  D5_pystacked  8947.240 (1310.361)
+  46  2  Y6_pystacked  D6_pystacked  9328.916 (1304.504)
+  47  2  Y6_pystacked        D7_reg  9025.415 (1487.035)
+  48  2  Y6_pystacked        D8_reg -5026.169 (8430.592)
+  ss  2  [shortstack]          [ss]  9226.922 (1301.462)
+   1  3        Y1_reg      D1_logit  5999.811 (1469.541)
+   2  3        Y1_reg  D2_pystacked  8763.426 (1422.878)
+   3  3        Y1_reg  D3_pystacked  8415.149 (1354.586)
+   4  3        Y1_reg  D4_pystacked  7811.827 (1368.999)
+   5  3        Y1_reg  D5_pystacked  8517.654 (1384.432)
+   6  3        Y1_reg  D6_pystacked  8327.102 (1443.061)
+   7  3        Y1_reg        D7_reg  5787.777 (1530.333)
+   8  3        Y1_reg        D8_reg -7502.703 (8560.221)
+   9  3        Y2_reg      D1_logit -1494.738  (1.0e+04)
+  10  3        Y2_reg  D2_pystacked -1807.887  (1.1e+04)
+  11  3        Y2_reg  D3_pystacked  8150.979 (1419.234)
+  12  3        Y2_reg  D4_pystacked  3762.201 (5203.396)
+  13  3        Y2_reg  D5_pystacked  3164.415 (5576.011)
+  14  3        Y2_reg  D6_pystacked  6604.626 (2166.250)
+  15  3        Y2_reg        D7_reg -3447.779  (1.2e+04)
+  16  3        Y2_reg        D8_reg -2.33e+05  (1.3e+05)
+  17  3  Y3_pystacked      D1_logit  9268.516 (1344.207)
+  18  3  Y3_pystacked  D2_pystacked  9044.429 (1293.267)
+* 19  3  Y3_pystacked  D3_pystacked  9432.788 (1323.676)
+  20  3  Y3_pystacked  D4_pystacked  9529.764 (1312.826)
+  21  3  Y3_pystacked  D5_pystacked  8611.533 (1310.988)
+  22  3  Y3_pystacked  D6_pystacked  8163.319 (1378.492)
+  23  3  Y3_pystacked        D7_reg  9213.450 (1367.251)
+  24  3  Y3_pystacked        D8_reg -1186.114 (5323.671)
+  25  3  Y4_pystacked      D1_logit  9433.172 (1344.105)
+  26  3  Y4_pystacked  D2_pystacked  9006.819 (1292.367)
+  27  3  Y4_pystacked  D3_pystacked  9547.316 (1325.855)
+  28  3  Y4_pystacked  D4_pystacked  9643.180 (1314.468)
+  29  3  Y4_pystacked  D5_pystacked  8604.401 (1311.846)
+  30  3  Y4_pystacked  D6_pystacked  8167.594 (1379.351)
+  31  3  Y4_pystacked        D7_reg  9376.896 (1365.766)
+  32  3  Y4_pystacked        D8_reg  -887.734 (5141.056)
+  33  3  Y5_pystacked      D1_logit  8057.659 (1440.512)
+  34  3  Y5_pystacked  D2_pystacked  8300.005 (1393.327)
+  35  3  Y5_pystacked  D3_pystacked  8906.021 (1335.810)
+  36  3  Y5_pystacked  D4_pystacked  8801.477 (1341.905)
+  37  3  Y5_pystacked  D5_pystacked  8374.400 (1356.790)
+  38  3  Y5_pystacked  D6_pystacked  8188.587 (1412.551)
+  39  3  Y5_pystacked        D7_reg  7989.644 (1501.063)
+  40  3  Y5_pystacked        D8_reg -7160.743 (8257.590)
+  41  3  Y6_pystacked      D1_logit  9166.171 (1353.860)
+  42  3  Y6_pystacked  D2_pystacked  9173.601 (1296.329)
+  43  3  Y6_pystacked  D3_pystacked  9462.500 (1326.098)
+  44  3  Y6_pystacked  D4_pystacked  9427.064 (1316.558)
+  45  3  Y6_pystacked  D5_pystacked  8747.594 (1312.825)
+  46  3  Y6_pystacked  D6_pystacked  8194.904 (1375.711)
+  47  3  Y6_pystacked        D7_reg  9059.230 (1377.557)
+  48  3  Y6_pystacked        D8_reg -1515.263 (5585.913)
+  ss  3  [shortstack]          [ss]  9158.178 (1313.544)
+   1  4        Y1_reg      D1_logit  6112.731 (1467.377)
+   2  4        Y1_reg  D2_pystacked  8833.251 (1403.671)
+   3  4        Y1_reg  D3_pystacked  8654.913 (1348.101)
+   4  4        Y1_reg  D4_pystacked  8527.735 (1346.315)
+   5  4        Y1_reg  D5_pystacked  8708.609 (1359.969)
+   6  4        Y1_reg  D6_pystacked  8677.653 (1325.830)
+   7  4        Y1_reg        D7_reg  5855.424 (1539.417)
+   8  4        Y1_reg        D8_reg  -692.684 (8425.358)
+   9  4        Y2_reg      D1_logit  9062.257 (1455.606)
+  10  4        Y2_reg  D2_pystacked  9447.879 (1379.967)
+  11  4        Y2_reg  D3_pystacked  8885.189 (1349.940)
+  12  4        Y2_reg  D4_pystacked  9234.621 (1337.976)
+  13  4        Y2_reg  D5_pystacked  9067.130 (1351.270)
+  14  4        Y2_reg  D6_pystacked  8441.945 (1309.660)
+  15  4        Y2_reg        D7_reg  9278.952 (1518.675)
+  16  4        Y2_reg        D8_reg 15237.500 (5633.245)
+  17  4  Y3_pystacked      D1_logit  9328.383 (1353.890)
+  18  4  Y3_pystacked  D2_pystacked  9153.050 (1301.518)
+* 19  4  Y3_pystacked  D3_pystacked  9746.587 (1318.094)
+  20  4  Y3_pystacked  D4_pystacked 10052.660 (1317.294)
+  21  4  Y3_pystacked  D5_pystacked  8947.095 (1299.519)
+  22  4  Y3_pystacked  D6_pystacked  8538.710 (1283.434)
+  23  4  Y3_pystacked        D7_reg  9210.936 (1388.380)
+  24  4  Y3_pystacked        D8_reg  2721.035 (5721.520)
+  25  4  Y4_pystacked      D1_logit  9551.684 (1350.983)
+  26  4  Y4_pystacked  D2_pystacked  9136.506 (1298.536)
+  27  4  Y4_pystacked  D3_pystacked  9905.588 (1319.726)
+  28  4  Y4_pystacked  D4_pystacked 10195.760 (1318.979)
+  29  4  Y4_pystacked  D5_pystacked  8985.278 (1299.396)
+  30  4  Y4_pystacked  D6_pystacked  8552.314 (1283.404)
+  31  4  Y4_pystacked        D7_reg  9435.360 (1382.823)
+  32  4  Y4_pystacked        D8_reg  2964.334 (5483.613)
+  33  4  Y5_pystacked      D1_logit  8303.307 (1444.833)
+  34  4  Y5_pystacked  D2_pystacked  8471.964 (1387.025)
+  35  4  Y5_pystacked  D3_pystacked  9278.549 (1330.340)
+  36  4  Y5_pystacked  D4_pystacked  9440.171 (1333.297)
+  37  4  Y5_pystacked  D5_pystacked  8675.248 (1336.090)
+  38  4  Y5_pystacked  D6_pystacked  8642.207 (1302.711)
+  39  4  Y5_pystacked        D7_reg  8200.127 (1519.374)
+  40  4  Y5_pystacked        D8_reg  -719.766 (8367.471)
+  41  4  Y6_pystacked      D1_logit  9264.290 (1404.268)
+  42  4  Y6_pystacked  D2_pystacked  9200.009 (1354.222)
+  43  4  Y6_pystacked  D3_pystacked  9844.895 (1337.284)
+  44  4  Y6_pystacked  D4_pystacked 10082.430 (1336.995)
+  45  4  Y6_pystacked  D5_pystacked  9090.821 (1321.863)
+  46  4  Y6_pystacked  D6_pystacked  8767.591 (1299.682)
+  47  4  Y6_pystacked        D7_reg  9102.257 (1455.117)
+  48  4  Y6_pystacked        D8_reg  1079.949 (7300.131)
+  ss  4  [shortstack]          [ss]  9339.805 (1291.980)
+   1  5        Y1_reg      D1_logit  6111.272 (1464.463)
+   2  5        Y1_reg  D2_pystacked  8966.173 (1424.650)
+   3  5        Y1_reg  D3_pystacked  8687.557 (1354.295)
+   4  5        Y1_reg  D4_pystacked  8023.230 (1352.067)
+   5  5        Y1_reg  D5_pystacked  8910.188 (1351.411)
+   6  5        Y1_reg  D6_pystacked  8466.179 (1310.040)
+   7  5        Y1_reg        D7_reg  5865.519 (1535.396)
+   8  5        Y1_reg        D8_reg -6387.386 (9277.202)
+   9  5        Y2_reg      D1_logit  9366.108 (1561.454)
+  10  5        Y2_reg  D2_pystacked  9927.132 (1538.279)
+  11  5        Y2_reg  D3_pystacked  8935.996 (1355.909)
+  12  5        Y2_reg  D4_pystacked  8632.091 (1350.994)
+  13  5        Y2_reg  D5_pystacked  9406.008 (1371.845)
+  14  5        Y2_reg  D6_pystacked  8376.007 (1312.487)
+  15  5        Y2_reg        D7_reg  9688.570 (1683.735)
+  16  5        Y2_reg        D8_reg 23006.560 (8629.186)
+  17  5  Y3_pystacked      D1_logit  9383.633 (1339.913)
+  18  5  Y3_pystacked  D2_pystacked  9250.541 (1297.908)
+* 19  5  Y3_pystacked  D3_pystacked  9725.536 (1321.443)
+  20  5  Y3_pystacked  D4_pystacked  9484.353 (1309.679)
+  21  5  Y3_pystacked  D5_pystacked  9130.340 (1285.228)
+  22  5  Y3_pystacked  D6_pystacked  8155.643 (1263.612)
+  23  5  Y3_pystacked        D7_reg  9307.614 (1366.055)
+  24  5  Y3_pystacked        D8_reg  -194.317 (5727.355)
+  25  5  Y4_pystacked      D1_logit  9632.086 (1337.175)
+  26  5  Y4_pystacked  D2_pystacked  9223.253 (1293.610)
+  27  5  Y4_pystacked  D3_pystacked  9887.196 (1322.224)
+  28  5  Y4_pystacked  D4_pystacked  9626.021 (1310.904)
+  29  5  Y4_pystacked  D5_pystacked  9155.902 (1284.502)
+  30  5  Y4_pystacked  D6_pystacked  8170.923 (1263.656)
+  31  5  Y4_pystacked        D7_reg  9555.910 (1360.680)
+  32  5  Y4_pystacked        D8_reg   237.043 (5448.946)
+  33  5  Y5_pystacked      D1_logit  8235.681 (1447.506)
+  34  5  Y5_pystacked  D2_pystacked  8539.346 (1399.263)
+  35  5  Y5_pystacked  D3_pystacked  9223.043 (1341.904)
+  36  5  Y5_pystacked  D4_pystacked  8775.925 (1337.247)
+  37  5  Y5_pystacked  D5_pystacked  8785.247 (1332.493)
+  38  5  Y5_pystacked  D6_pystacked  8234.803 (1295.955)
+  39  5  Y5_pystacked        D7_reg  8140.238 (1518.159)
+  40  5  Y5_pystacked        D8_reg -6006.296 (8948.339)
+  41  5  Y6_pystacked      D1_logit  9370.684 (1358.155)
+  42  5  Y6_pystacked  D2_pystacked  9352.963 (1317.424)
+  43  5  Y6_pystacked  D3_pystacked  9806.081 (1329.604)
+  44  5  Y6_pystacked  D4_pystacked  9435.955 (1316.612)
+  45  5  Y6_pystacked  D5_pystacked  9154.577 (1295.924)
+  46  5  Y6_pystacked  D6_pystacked  8303.361 (1270.842)
+  47  5  Y6_pystacked        D7_reg  9217.491 (1388.572)
+  48  5  Y6_pystacked        D8_reg -1181.398 (6412.960)
+  ss  5  [shortstack]          [ss]  9334.130 (1285.957)
+   1  6        Y1_reg      D1_logit  6112.854 (1460.693)
+   2  6        Y1_reg  D2_pystacked  8949.231 (1425.896)
+   3  6        Y1_reg  D3_pystacked  8756.167 (1350.864)
+   4  6        Y1_reg  D4_pystacked  7875.357 (1343.933)
+   5  6        Y1_reg  D5_pystacked  8830.919 (1361.674)
+   6  6        Y1_reg  D6_pystacked  8415.181 (1372.026)
+   7  6        Y1_reg        D7_reg  5892.353 (1526.424)
+   8  6        Y1_reg        D8_reg -7645.103 (8319.512)
+   9  6        Y2_reg      D1_logit  6181.401 (2686.924)
+  10  6        Y2_reg  D2_pystacked  6700.656 (2774.417)
+  11  6        Y2_reg  D3_pystacked  8836.015 (1347.078)
+  12  6        Y2_reg  D4_pystacked  7653.094 (1729.629)
+  13  6        Y2_reg  D5_pystacked  7894.151 (1660.732)
+  14  6        Y2_reg  D6_pystacked  7214.947 (1681.650)
+  15  6        Y2_reg        D7_reg  5726.377 (3133.883)
+  16  6        Y2_reg        D8_reg -4.98e+04  (2.9e+04)
+  17  6  Y3_pystacked      D1_logit  9317.549 (1329.960)
+  18  6  Y3_pystacked  D2_pystacked  9137.957 (1291.250)
+* 19  6  Y3_pystacked  D3_pystacked  9580.025 (1310.989)
+  20  6  Y3_pystacked  D4_pystacked  9455.662 (1296.995)
+  21  6  Y3_pystacked  D5_pystacked  8843.927 (1291.523)
+  22  6  Y3_pystacked  D6_pystacked  8169.250 (1295.749)
+  23  6  Y3_pystacked        D7_reg  9257.057 (1356.351)
+  24  6  Y3_pystacked        D8_reg -1815.818 (5496.689)
+  25  6  Y4_pystacked      D1_logit  9489.497 (1325.171)
+  26  6  Y4_pystacked  D2_pystacked  9087.400 (1287.183)
+  27  6  Y4_pystacked  D3_pystacked  9661.328 (1312.738)
+  28  6  Y4_pystacked  D4_pystacked  9545.666 (1298.119)
+  29  6  Y4_pystacked  D5_pystacked  8835.485 (1291.887)
+  30  6  Y4_pystacked  D6_pystacked  8183.770 (1295.355)
+  31  6  Y4_pystacked        D7_reg  9432.056 (1348.676)
+  32  6  Y4_pystacked        D8_reg -1270.534 (5190.800)
+  33  6  Y5_pystacked      D1_logit  7965.899 (1421.938)
+  34  6  Y5_pystacked  D2_pystacked  8267.986 (1381.252)
+  35  6  Y5_pystacked  D3_pystacked  8906.857 (1320.904)
+  36  6  Y5_pystacked  D4_pystacked  8523.255 (1317.932)
+  37  6  Y5_pystacked  D5_pystacked  8398.630 (1324.886)
+  38  6  Y5_pystacked  D6_pystacked  7867.688 (1330.344)
+  39  6  Y5_pystacked        D7_reg  7904.626 (1487.017)
+  40  6  Y5_pystacked        D8_reg -7349.041 (7934.705)
+  41  6  Y6_pystacked      D1_logit  9354.091 (1341.153)
+  42  6  Y6_pystacked  D2_pystacked  9255.915 (1302.811)
+  43  6  Y6_pystacked  D3_pystacked  9668.912 (1309.136)
+  44  6  Y6_pystacked  D4_pystacked  9389.182 (1303.949)
+  45  6  Y6_pystacked  D5_pystacked  8889.372 (1288.270)
+  46  6  Y6_pystacked  D6_pystacked  8256.852 (1289.652)
+  47  6  Y6_pystacked        D7_reg  9217.058 (1371.023)
+  48  6  Y6_pystacked        D8_reg -3276.100 (6328.739)
+  ss  6  [shortstack]          [ss]  9314.057 (1293.178)
+   1  7        Y1_reg      D1_logit  6056.390 (1459.960)
+   2  7        Y1_reg  D2_pystacked  8760.118 (1382.227)
+   3  7        Y1_reg  D3_pystacked  9054.766 (1348.298)
+   4  7        Y1_reg  D4_pystacked  8955.142 (1376.174)
+   5  7        Y1_reg  D5_pystacked  8656.283 (1364.798)
+   6  7        Y1_reg  D6_pystacked  8620.773 (1445.196)
+   7  7        Y1_reg        D7_reg  5820.909 (1528.378)
+   8  7        Y1_reg        D8_reg -3410.012 (9630.345)
+   9  7        Y2_reg      D1_logit 11050.830 (2669.320)
+  10  7        Y2_reg  D2_pystacked 11453.000 (2747.252)
+  11  7        Y2_reg  D3_pystacked  9187.028 (1359.929)
+  12  7        Y2_reg  D4_pystacked  9230.694 (1384.245)
+  13  7        Y2_reg  D5_pystacked 10054.660 (1721.115)
+  14  7        Y2_reg  D6_pystacked 11368.720 (2631.347)
+  15  7        Y2_reg        D7_reg 11697.350 (3132.963)
+  16  7        Y2_reg        D8_reg 52933.580  (3.4e+04)
+  17  7  Y3_pystacked      D1_logit  9369.694 (1342.297)
+  18  7  Y3_pystacked  D2_pystacked  9003.366 (1281.244)
+  19  7  Y3_pystacked  D3_pystacked  9758.071 (1317.116)
+  20  7  Y3_pystacked  D4_pystacked  9871.711 (1341.331)
+  21  7  Y3_pystacked  D5_pystacked  8914.610 (1301.614)
+  22  7  Y3_pystacked  D6_pystacked  8632.823 (1333.789)
+  23  7  Y3_pystacked        D7_reg  9278.318 (1375.589)
+  24  7  Y3_pystacked        D8_reg   826.292 (6641.490)
+  25  7  Y4_pystacked      D1_logit  9540.495 (1337.694)
+  26  7  Y4_pystacked  D2_pystacked  8946.765 (1276.114)
+* 27  7  Y4_pystacked  D3_pystacked  9845.653 (1317.893)
+  28  7  Y4_pystacked  D4_pystacked  9934.325 (1341.582)
+  29  7  Y4_pystacked  D5_pystacked  8910.875 (1299.967)
+  30  7  Y4_pystacked  D6_pystacked  8639.254 (1326.775)
+  31  7  Y4_pystacked        D7_reg  9450.528 (1367.963)
+  32  7  Y4_pystacked        D8_reg  1192.713 (6309.361)
+  33  7  Y5_pystacked      D1_logit  8282.641 (1438.587)
+  34  7  Y5_pystacked  D2_pystacked  8351.197 (1370.954)
+  35  7  Y5_pystacked  D3_pystacked  9325.681 (1334.390)
+  36  7  Y5_pystacked  D4_pystacked  9360.981 (1362.755)
+  37  7  Y5_pystacked  D5_pystacked  8641.268 (1344.641)
+  38  7  Y5_pystacked  D6_pystacked  8635.127 (1422.008)
+  39  7  Y5_pystacked        D7_reg  8214.617 (1509.465)
+  40  7  Y5_pystacked        D8_reg -3300.733 (9481.736)
+  41  7  Y6_pystacked      D1_logit  9392.011 (1361.028)
+  42  7  Y6_pystacked  D2_pystacked  9105.280 (1306.200)
+  43  7  Y6_pystacked  D3_pystacked  9818.287 (1324.775)
+  44  7  Y6_pystacked  D4_pystacked  9816.153 (1349.057)
+  45  7  Y6_pystacked  D5_pystacked  9019.604 (1307.662)
+  46  7  Y6_pystacked  D6_pystacked  8711.837 (1359.991)
+  47  7  Y6_pystacked        D7_reg  9215.066 (1399.861)
+  48  7  Y6_pystacked        D8_reg  -317.163 (7721.615)
+  ss  7  [shortstack]          [ss]  9420.756 (1276.261)
+   1  8        Y1_reg      D1_logit  5995.907 (1461.939)
+   2  8        Y1_reg  D2_pystacked  8664.989 (1430.443)
+   3  8        Y1_reg  D3_pystacked  8760.479 (1352.708)
+   4  8        Y1_reg  D4_pystacked  8358.145 (1412.142)
+   5  8        Y1_reg  D5_pystacked  8573.203 (1335.182)
+   6  8        Y1_reg  D6_pystacked  8462.552 (1304.348)
+   7  8        Y1_reg        D7_reg  5776.642 (1522.299)
+   8  8        Y1_reg        D8_reg -7956.935 (3620.695)
+   9  8        Y2_reg      D1_logit  5487.372 (3182.674)
+  10  8        Y2_reg  D2_pystacked  5711.782 (3331.206)
+  11  8        Y2_reg  D3_pystacked  8402.175 (1375.771)
+  12  8        Y2_reg  D4_pystacked  8279.407 (1429.132)
+  13  8        Y2_reg  D5_pystacked  7304.117 (1802.961)
+  14  8        Y2_reg  D6_pystacked  7187.485 (1697.544)
+  15  8        Y2_reg        D7_reg  5035.543 (3721.969)
+  16  8        Y2_reg        D8_reg -5.39e+04  (1.3e+04)
+  17  8  Y3_pystacked      D1_logit  9127.043 (1340.113)
+  18  8  Y3_pystacked  D2_pystacked  8799.736 (1301.913)
+* 19  8  Y3_pystacked  D3_pystacked  9335.756 (1323.255)
+  20  8  Y3_pystacked  D4_pystacked  9296.960 (1356.767)
+  21  8  Y3_pystacked  D5_pystacked  8591.047 (1271.008)
+  22  8  Y3_pystacked  D6_pystacked  8231.005 (1236.037)
+  23  8  Y3_pystacked        D7_reg  9054.732 (1365.016)
+  24  8  Y3_pystacked        D8_reg -3382.971 (2649.532)
+  25  8  Y4_pystacked      D1_logit  9377.754 (1336.395)
+  26  8  Y4_pystacked  D2_pystacked  8760.171 (1298.281)
+  27  8  Y4_pystacked  D3_pystacked  9468.367 (1325.405)
+  28  8  Y4_pystacked  D4_pystacked  9405.096 (1357.363)
+  29  8  Y4_pystacked  D5_pystacked  8619.311 (1271.093)
+  30  8  Y4_pystacked  D6_pystacked  8239.696 (1234.273)
+  31  8  Y4_pystacked        D7_reg  9306.162 (1358.829)
+  32  8  Y4_pystacked        D8_reg -2984.806 (2555.281)
+  33  8  Y5_pystacked      D1_logit  8249.942 (1433.483)
+  34  8  Y5_pystacked  D2_pystacked  8254.508 (1397.646)
+  35  8  Y5_pystacked  D3_pystacked  9083.784 (1341.647)
+  36  8  Y5_pystacked  D4_pystacked  8889.765 (1392.374)
+  37  8  Y5_pystacked  D5_pystacked  8534.285 (1311.898)
+  38  8  Y5_pystacked  D6_pystacked  8381.730 (1282.372)
+  39  8  Y5_pystacked        D7_reg  8199.732 (1492.671)
+  40  8  Y5_pystacked        D8_reg -7507.345 (3486.011)
+  41  8  Y6_pystacked      D1_logit  9050.900 (1359.718)
+  42  8  Y6_pystacked  D2_pystacked  8806.197 (1320.645)
+  43  8  Y6_pystacked  D3_pystacked  9372.180 (1330.943)
+  44  8  Y6_pystacked  D4_pystacked  9245.299 (1366.768)
+  45  8  Y6_pystacked  D5_pystacked  8543.381 (1277.610)
+  46  8  Y6_pystacked  D6_pystacked  8210.647 (1239.896)
+  47  8  Y6_pystacked        D7_reg  8897.479 (1387.838)
+  48  8  Y6_pystacked        D8_reg -4312.334 (2866.362)
+  ss  8  [shortstack]          [ss]  8943.233 (1294.103)
+   1  9        Y1_reg      D1_logit  5955.236 (1478.488)
+   2  9        Y1_reg  D2_pystacked  8718.143 (1427.682)
+   3  9        Y1_reg  D3_pystacked  8615.834 (1364.987)
+   4  9        Y1_reg  D4_pystacked  8124.365 (1378.634)
+   5  9        Y1_reg  D5_pystacked  8521.262 (1387.850)
+   6  9        Y1_reg  D6_pystacked  8953.040 (1404.504)
+   7  9        Y1_reg        D7_reg  5712.313 (1550.119)
+   8  9        Y1_reg        D8_reg -2152.390 (9114.349)
+   9  9        Y2_reg      D1_logit 13950.610 (5698.239)
+  10  9        Y2_reg  D2_pystacked 14185.230 (5986.661)
+  11  9        Y2_reg  D3_pystacked  8327.566 (1486.667)
+  12  9        Y2_reg  D4_pystacked  8132.250 (1589.767)
+  13  9        Y2_reg  D5_pystacked 10916.940 (2896.990)
+  14  9        Y2_reg  D6_pystacked 11617.560 (3297.735)
+  15  9        Y2_reg        D7_reg 15543.580 (7005.295)
+  16  9        Y2_reg        D8_reg  1.05e+05  (8.0e+04)
+  17  9  Y3_pystacked      D1_logit  9220.963 (1348.416)
+  18  9  Y3_pystacked  D2_pystacked  9037.093 (1299.341)
+  19  9  Y3_pystacked  D3_pystacked  9616.254 (1331.234)
+  20  9  Y3_pystacked  D4_pystacked  9375.927 (1334.964)
+  21  9  Y3_pystacked  D5_pystacked  8739.548 (1319.812)
+  22  9  Y3_pystacked  D6_pystacked  8674.463 (1328.909)
+  23  9  Y3_pystacked        D7_reg  9144.717 (1378.277)
+  24  9  Y3_pystacked        D8_reg  2276.879 (5543.315)
+  25  9  Y4_pystacked      D1_logit  9489.418 (1343.748)
+  26  9  Y4_pystacked  D2_pystacked  9064.853 (1294.137)
+* 27  9  Y4_pystacked  D3_pystacked  9782.354 (1332.119)
+  28  9  Y4_pystacked  D4_pystacked  9552.253 (1335.524)
+  29  9  Y4_pystacked  D5_pystacked  8812.359 (1319.122)
+  30  9  Y4_pystacked  D6_pystacked  8703.805 (1327.900)
+  31  9  Y4_pystacked        D7_reg  9414.011 (1370.329)
+  32  9  Y4_pystacked        D8_reg  2726.109 (5184.951)
+  33  9  Y5_pystacked      D1_logit  7971.041 (1449.203)
+  34  9  Y5_pystacked  D2_pystacked  8215.334 (1396.539)
+  35  9  Y5_pystacked  D3_pystacked  8986.638 (1350.061)
+  36  9  Y5_pystacked  D4_pystacked  8647.816 (1360.262)
+  37  9  Y5_pystacked  D5_pystacked  8359.518 (1356.674)
+  38  9  Y5_pystacked  D6_pystacked  8544.216 (1373.132)
+  39  9  Y5_pystacked        D7_reg  7892.018 (1521.275)
+  40  9  Y5_pystacked        D8_reg -2155.690 (8798.251)
+  41  9  Y6_pystacked      D1_logit  9115.050 (1356.166)
+  42  9  Y6_pystacked  D2_pystacked  9190.427 (1297.292)
+  43  9  Y6_pystacked  D3_pystacked  9593.223 (1335.814)
+  44  9  Y6_pystacked  D4_pystacked  9196.434 (1344.653)
+  45  9  Y6_pystacked  D5_pystacked  8687.021 (1325.305)
+  46  9  Y6_pystacked  D6_pystacked  8626.438 (1334.696)
+  47  9  Y6_pystacked        D7_reg  8977.342 (1384.160)
+  48  9  Y6_pystacked        D8_reg  3003.279 (5027.303)
+  ss  9  [shortstack]          [ss]  9232.634 (1302.330)
+   1 10        Y1_reg      D1_logit  6102.701 (1462.218)
+   2 10        Y1_reg  D2_pystacked  8896.792 (1427.231)
+   3 10        Y1_reg  D3_pystacked  8835.852 (1334.551)
+   4 10        Y1_reg  D4_pystacked  8145.019 (1439.475)
+   5 10        Y1_reg  D5_pystacked  8569.132 (1359.889)
+   6 10        Y1_reg  D6_pystacked  8526.534 (1352.563)
+   7 10        Y1_reg        D7_reg  5883.754 (1523.167)
+   8 10        Y1_reg        D8_reg -5853.086 (9532.704)
+   9 10        Y2_reg      D1_logit  7675.507 (1625.235)
+  10 10        Y2_reg  D2_pystacked  8085.654 (1623.566)
+  11 10        Y2_reg  D3_pystacked  8742.281 (1351.493)
+  12 10        Y2_reg  D4_pystacked  8328.648 (1481.765)
+  13 10        Y2_reg  D5_pystacked  8266.881 (1408.980)
+  14 10        Y2_reg  D6_pystacked  8246.141 (1437.487)
+  15 10        Y2_reg        D7_reg  7596.951 (1750.281)
+  16 10        Y2_reg        D8_reg -1.43e+04  (1.5e+04)
+  17 10  Y3_pystacked      D1_logit  9346.792 (1335.033)
+  18 10  Y3_pystacked  D2_pystacked  9155.043 (1297.530)
+* 19 10  Y3_pystacked  D3_pystacked  9536.780 (1296.849)
+  20 10  Y3_pystacked  D4_pystacked  9482.304 (1354.748)
+  21 10  Y3_pystacked  D5_pystacked  8825.684 (1288.198)
+  22 10  Y3_pystacked  D6_pystacked  8763.812 (1267.233)
+  23 10  Y3_pystacked        D7_reg  9288.828 (1359.768)
+  24 10  Y3_pystacked        D8_reg  -307.894 (6137.781)
+  25 10  Y4_pystacked      D1_logit  9552.066 (1331.188)
+  26 10  Y4_pystacked  D2_pystacked  9096.789 (1293.712)
+  27 10  Y4_pystacked  D3_pystacked  9628.683 (1298.429)
+  28 10  Y4_pystacked  D4_pystacked  9603.315 (1353.804)
+  29 10  Y4_pystacked  D5_pystacked  8828.870 (1288.144)
+  30 10  Y4_pystacked  D6_pystacked  8767.178 (1266.841)
+  31 10  Y4_pystacked        D7_reg  9491.371 (1353.587)
+  32 10  Y4_pystacked        D8_reg   106.695 (5828.533)
+  33 10  Y5_pystacked      D1_logit  8231.045 (1441.752)
+  34 10  Y5_pystacked  D2_pystacked  8336.571 (1402.187)
+  35 10  Y5_pystacked  D3_pystacked  8950.051 (1322.560)
+  36 10  Y5_pystacked  D4_pystacked  8709.945 (1417.699)
+  37 10  Y5_pystacked  D5_pystacked  8475.401 (1339.596)
+  38 10  Y5_pystacked  D6_pystacked  8532.207 (1332.200)
+  39 10  Y5_pystacked        D7_reg  8187.360 (1501.876)
+  40 10  Y5_pystacked        D8_reg -5521.294 (9151.517)
+  41 10  Y6_pystacked      D1_logit  9195.115 (1357.567)
+  42 10  Y6_pystacked  D2_pystacked  9194.684 (1313.057)
+  43 10  Y6_pystacked  D3_pystacked  9603.073 (1294.304)
+  44 10  Y6_pystacked  D4_pystacked  9391.834 (1358.853)
+  45 10  Y6_pystacked  D5_pystacked  8808.037 (1292.258)
+  46 10  Y6_pystacked  D6_pystacked  8805.377 (1274.486)
+  47 10  Y6_pystacked        D7_reg  9057.009 (1389.590)
+  48 10  Y6_pystacked        D8_reg -1912.248 (7226.060)
+  ss 10  [shortstack]          [ss]  9277.689 (1289.278)
+* = minimum MSE specification for that resample.
+
+Mean/med    Y learner     D learner         b        SE 
+ mse mn     [min-mse]     [min-mse]  9653.745 (1329.146)
+  ss mn  [shortstack]          [ss]  9269.188 (1300.828)
+ mse md     [min-mse]     [min-mse]  9692.178 (1324.849)
+  ss md  [shortstack]          [ss]  9295.873 (1296.457)
+
+Shortstack DDML model (median over 10 resamples)
+y-E[y|X]  = y-Y_net_tfa_ss                         Number of obs   =      9915
+D-E[D|X]  = D-D_e401_ss 
+------------------------------------------------------------------------------
+             |               Robust
+     net_tfa | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        e401 |   9295.873   1296.457     7.17   0.000     6754.864    11836.88
+------------------------------------------------------------------------------
+Stacking final estimator: nnls1
+
+Summary over 10 resamples:
+       D eqn      mean       min       p25       p50       p75       max
+        e401   9269.1877 8943.2324 9226.9229 9295.8730 9339.8057 9444.4727
+
+. 
+. *** Look at out of sample performance 
+. ddml extract, show(mse)
+
+MSEs for e401:
+                 rep   full smp      fold 1      fold 2      fold 3      fold 4      fold 5 
+        D1_logit   1      0.201       0.199       0.200       0.211       0.198       0.198  
+        D1_logit  10      0.201       0.201       0.206       0.205       0.198       0.196  
+        D1_logit   2      0.201       0.205       0.197       0.204       0.199       0.201  
+        D1_logit   3      0.201       0.201       0.194       0.201       0.202       0.209  
+        D1_logit   4      0.201       0.203       0.202       0.201       0.200       0.201  
+        D1_logit   5      0.201       0.202       0.196       0.202       0.203       0.204  
+        D1_logit   6      0.201       0.200       0.204       0.205       0.194       0.203  
+        D1_logit   7      0.201       0.200       0.203       0.204       0.201       0.200  
+        D1_logit   8      0.201       0.204       0.202       0.199       0.204       0.199  
+        D1_logit   9      0.201       0.205       0.208       0.199       0.193       0.202  
+    D2_pystacked   1      0.198       0.196       0.196       0.207       0.194       0.196  
+    D2_pystacked  10      0.198       0.198       0.203       0.201       0.194       0.192  
+    D2_pystacked   2      0.198       0.199       0.195       0.202       0.198       0.196  
+    D2_pystacked   3      0.198       0.197       0.191       0.196       0.199       0.207  
+    D2_pystacked   4      0.198       0.200       0.199       0.197       0.195       0.198  
+    D2_pystacked   5      0.198       0.197       0.191       0.199       0.200       0.200  
+    D2_pystacked   6      0.198       0.197       0.200       0.201       0.190       0.201  
+    D2_pystacked   7      0.198       0.198       0.198       0.200       0.197       0.198  
+    D2_pystacked   8      0.198       0.200       0.197       0.196       0.202       0.194  
+    D2_pystacked   9      0.198       0.200       0.202       0.198       0.189       0.200  
+    D3_pystacked   1      0.197       0.196       0.195       0.207       0.195       0.195  
+    D3_pystacked  10      0.197       0.197       0.202       0.199       0.195       0.192  
+    D3_pystacked   2      0.197       0.198       0.194       0.202       0.197       0.196  
+    D3_pystacked   3      0.197       0.198       0.191       0.196       0.197       0.205  
+    D3_pystacked   4      0.198       0.201       0.197       0.197       0.196       0.198  
+    D3_pystacked   5      0.197       0.198       0.190       0.199       0.199       0.200  
+    D3_pystacked   6      0.197       0.195       0.200       0.201       0.190       0.200  
+    D3_pystacked   7      0.198       0.196       0.199       0.199       0.196       0.199  
+    D3_pystacked   8      0.198       0.199       0.199       0.196       0.200       0.194  
+    D3_pystacked   9      0.198       0.201       0.203       0.197       0.189       0.198  
+    D4_pystacked   1      0.198       0.196       0.195       0.208       0.195       0.194  
+    D4_pystacked  10      0.198       0.197       0.203       0.201       0.195       0.194  
+    D4_pystacked   2      0.197       0.198       0.193       0.203       0.198       0.196  
+    D4_pystacked   3      0.198       0.199       0.191       0.196       0.199       0.206  
+    D4_pystacked   4      0.198       0.201       0.198       0.197       0.196       0.199  
+    D4_pystacked   5      0.197       0.198       0.190       0.199       0.200       0.199  
+    D4_pystacked   6      0.198       0.195       0.200       0.203       0.191       0.201  
+    D4_pystacked   7      0.198       0.196       0.201       0.200       0.195       0.198  
+    D4_pystacked   8      0.198       0.199       0.199       0.196       0.201       0.195  
+    D4_pystacked   9      0.198       0.203       0.203       0.195       0.189       0.198  
+    D5_pystacked   1      0.199       0.197       0.195       0.208       0.195       0.197  
+    D5_pystacked  10      0.199       0.200       0.203       0.200       0.197       0.194  
+    D5_pystacked   2      0.198       0.199       0.196       0.202       0.200       0.195  
+    D5_pystacked   3      0.199       0.199       0.190       0.200       0.199       0.208  
+    D5_pystacked   4      0.199       0.202       0.200       0.198       0.196       0.200  
+    D5_pystacked   5      0.198       0.198       0.193       0.201       0.200       0.199  
+    D5_pystacked   6      0.199       0.198       0.203       0.200       0.192       0.202  
+    D5_pystacked   7      0.199       0.199       0.198       0.201       0.195       0.200  
+    D5_pystacked   8      0.199       0.200       0.200       0.196       0.204       0.194  
+    D5_pystacked   9      0.199       0.203       0.205       0.201       0.193       0.195  
+    D6_pystacked   1      0.205       0.201       0.204       0.214       0.201       0.204  
+    D6_pystacked  10      0.203       0.209       0.205       0.200       0.200       0.200  
+    D6_pystacked   2      0.205       0.208       0.201       0.202       0.205       0.208  
+    D6_pystacked   3      0.207       0.205       0.201       0.205       0.210       0.215  
+    D6_pystacked   4      0.205       0.208       0.208       0.207       0.196       0.206  
+    D6_pystacked   5      0.204       0.201       0.200       0.211       0.201       0.206  
+    D6_pystacked   6      0.206       0.207       0.210       0.204       0.200       0.210  
+    D6_pystacked   7      0.202       0.207       0.200       0.206       0.196       0.202  
+    D6_pystacked   8      0.206       0.203       0.209       0.210       0.209       0.200  
+    D6_pystacked   9      0.206       0.212       0.210       0.202       0.199       0.207  
+          D7_reg   1      0.201       0.198       0.200       0.210       0.198       0.198  
+          D7_reg  10      0.201       0.200       0.205       0.204       0.198       0.196  
+          D7_reg   2      0.201       0.205       0.197       0.204       0.199       0.200  
+          D7_reg   3      0.201       0.200       0.194       0.201       0.202       0.208  
+          D7_reg   4      0.201       0.202       0.202       0.201       0.199       0.200  
+          D7_reg   5      0.201       0.201       0.195       0.202       0.203       0.203  
+          D7_reg   6      0.201       0.200       0.204       0.205       0.194       0.203  
+          D7_reg   7      0.201       0.200       0.202       0.203       0.200       0.199  
+          D7_reg   8      0.201       0.203       0.202       0.199       0.203       0.198  
+          D7_reg   9      0.201       0.204       0.208       0.199       0.193       0.201  
+          D8_reg   1      0.309       0.758       0.195       0.207       0.193       0.194  
+          D8_reg  10      0.306       0.197       0.201       0.200       0.194       0.741  
+          D8_reg   2      0.332       0.870       0.193       0.201       0.197       0.196  
+          D8_reg   3      0.375       0.196       0.190       0.196       1.087       0.206  
+          D8_reg   4      0.228       0.199       0.198       0.350       0.195       0.197  
+          D8_reg   5      0.324       0.197       0.190       0.199       0.199       0.833  
+          D8_reg   6      0.392       0.197       0.199       1.176       0.189       0.200  
+          D8_reg   7      0.257       0.198       0.198       0.498       0.196       0.196  
+          D8_reg   8      0.919       0.198       3.807       0.195       0.201       0.195  
+          D8_reg   9      0.240       0.199       0.414       0.198       0.189       0.198  
+       D_e401_ss   1      0.175       0.173       0.177       0.184       0.170       0.173  
+       D_e401_ss  10      0.175       0.182       0.172       0.170       0.171       0.179  
+       D_e401_ss   2      0.176       0.173       0.178       0.173       0.174       0.180  
+       D_e401_ss   3      0.175       0.176       0.171       0.176       0.178       0.173  
+       D_e401_ss   4      0.176       0.182       0.179       0.173       0.175       0.171  
+       D_e401_ss   5      0.174       0.175       0.173       0.171       0.172       0.179  
+       D_e401_ss   6      0.175       0.177       0.177       0.180       0.172       0.170  
+       D_e401_ss   7      0.174       0.172       0.172       0.176       0.178       0.173  
+       D_e401_ss   8      0.175       0.178       0.173       0.178       0.181       0.166  
+       D_e401_ss   9      0.176       0.180       0.174       0.176       0.180       0.170  
+
+MSEs for net_tfa:
+                 rep   full smp      fold 1      fold 2      fold 3      fold 4      fold 5 
+          Y1_reg   1  3.123e+09   2.958e+09   3.120e+09   2.370e+09   2.761e+09   4.405e+09  
+          Y1_reg  10  3.116e+09   2.753e+09   3.194e+09   2.963e+09   3.581e+09   3.090e+09  
+          Y1_reg   2  3.127e+09   3.612e+09   3.390e+09   2.070e+09   3.081e+09   3.484e+09  
+          Y1_reg   3  3.125e+09   2.625e+09   2.477e+09   4.271e+09   2.929e+09   3.326e+09  
+          Y1_reg   4  3.133e+09   1.599e+09   2.097e+09   5.259e+09   3.567e+09   3.145e+09  
+          Y1_reg   5  3.123e+09   2.295e+09   3.707e+09   3.381e+09   4.021e+09   2.211e+09  
+          Y1_reg   6  3.120e+09   1.604e+09   4.823e+09   2.076e+09   3.128e+09   3.967e+09  
+          Y1_reg   7  3.124e+09   2.504e+09   1.949e+09   4.415e+09   3.079e+09   3.671e+09  
+          Y1_reg   8  3.121e+09   4.665e+09   2.622e+09   2.374e+09   3.262e+09   2.681e+09  
+          Y1_reg   9  3.140e+09   4.592e+09   4.497e+09   2.365e+09   1.439e+09   2.807e+09  
+          Y2_reg   1  1.202e+10   4.720e+10   2.843e+09   2.390e+09   3.184e+09   4.486e+09  
+          Y2_reg  10  3.309e+09   2.767e+09   2.993e+09   2.842e+09   3.785e+09   4.156e+09  
+          Y2_reg   2  2.479e+10   1.118e+11   3.365e+09   2.381e+09   2.948e+09   3.513e+09  
+          Y2_reg   3  4.744e+10   2.446e+09   2.434e+09   4.175e+09   2.247e+11   3.436e+09  
+          Y2_reg   4  3.083e+09   1.456e+09   2.206e+09   4.957e+09   3.445e+09   3.352e+09  
+          Y2_reg   5  3.199e+09   2.396e+09   3.734e+09   3.261e+09   3.725e+09   2.877e+09  
+          Y2_reg   6  5.275e+09   1.437e+09   4.889e+09   1.317e+10   3.099e+09   3.776e+09  
+          Y2_reg   7  5.237e+09   2.391e+09   2.082e+09   1.523e+10   3.075e+09   3.410e+09  
+          Y2_reg   8  6.595e+09   4.488e+09   2.026e+10   2.374e+09   3.171e+09   2.686e+09  
+          Y2_reg   9  1.633e+10   4.355e+09   6.958e+10   3.491e+09   1.429e+09   2.798e+09  
+    Y3_pystacked   1  2.840e+09   2.505e+09   2.466e+09   2.205e+09   2.689e+09   4.338e+09  
+    Y3_pystacked  10  2.808e+09   2.658e+09   2.751e+09   2.601e+09   3.558e+09   2.473e+09  
+    Y3_pystacked   2  2.907e+09   2.912e+09   3.240e+09   1.966e+09   3.017e+09   3.400e+09  
+    Y3_pystacked   3  2.827e+09   2.543e+09   2.153e+09   3.698e+09   2.431e+09   3.310e+09  
+    Y3_pystacked   4  2.860e+09   1.524e+09   2.177e+09   4.472e+09   3.162e+09   2.967e+09  
+    Y3_pystacked   5  2.824e+09   2.252e+09   3.688e+09   3.002e+09   3.360e+09   1.819e+09  
+    Y3_pystacked   6  2.805e+09   1.492e+09   4.482e+09   1.593e+09   2.971e+09   3.487e+09  
+    Y3_pystacked   7  2.836e+09   2.462e+09   1.911e+09   3.682e+09   2.979e+09   3.147e+09  
+    Y3_pystacked   8  2.830e+09   4.166e+09   2.239e+09   2.336e+09   2.814e+09   2.592e+09  
+    Y3_pystacked   9  2.833e+09   3.923e+09   3.904e+09   2.365e+09   1.250e+09   2.724e+09  
+    Y4_pystacked   1  2.838e+09   2.503e+09   2.425e+09   2.218e+09   2.688e+09   4.354e+09  
+    Y4_pystacked  10  2.809e+09   2.675e+09   2.741e+09   2.605e+09   3.567e+09   2.456e+09  
+    Y4_pystacked   2  2.899e+09   2.814e+09   3.259e+09   1.987e+09   3.021e+09   3.414e+09  
+    Y4_pystacked   3  2.835e+09   2.560e+09   2.141e+09   3.701e+09   2.440e+09   3.334e+09  
+    Y4_pystacked   4  2.863e+09   1.544e+09   2.201e+09   4.432e+09   3.164e+09   2.975e+09  
+    Y4_pystacked   5  2.824e+09   2.259e+09   3.717e+09   2.972e+09   3.346e+09   1.827e+09  
+    Y4_pystacked   6  2.808e+09   1.494e+09   4.499e+09   1.581e+09   2.983e+09   3.483e+09  
+    Y4_pystacked   7  2.832e+09   2.480e+09   1.919e+09   3.647e+09   2.980e+09   3.131e+09  
+    Y4_pystacked   8  2.835e+09   4.165e+09   2.245e+09   2.357e+09   2.800e+09   2.606e+09  
+    Y4_pystacked   9  2.832e+09   3.904e+09   3.894e+09   2.371e+09   1.258e+09   2.732e+09  
+    Y5_pystacked   1  3.051e+09   3.035e+09   2.896e+09   2.311e+09   2.767e+09   4.249e+09  
+    Y5_pystacked  10  3.022e+09   2.528e+09   3.050e+09   2.831e+09   3.697e+09   3.005e+09  
+    Y5_pystacked   2  3.032e+09   3.478e+09   3.264e+09   1.868e+09   3.172e+09   3.377e+09  
+    Y5_pystacked   3  3.009e+09   2.615e+09   2.267e+09   3.957e+09   2.806e+09   3.401e+09  
+    Y5_pystacked   4  3.030e+09   1.490e+09   2.130e+09   4.986e+09   3.469e+09   3.076e+09  
+    Y5_pystacked   5  3.023e+09   2.199e+09   3.672e+09   3.282e+09   3.749e+09   2.212e+09  
+    Y5_pystacked   6  2.962e+09   1.612e+09   4.631e+09   1.989e+09   2.864e+09   3.714e+09  
+    Y5_pystacked   7  3.036e+09   2.600e+09   1.933e+09   4.143e+09   3.010e+09   3.495e+09  
+    Y5_pystacked   8  3.012e+09   4.485e+09   2.701e+09   2.208e+09   3.104e+09   2.564e+09  
+    Y5_pystacked   9  3.021e+09   4.421e+09   4.313e+09   2.311e+09   1.308e+09   2.753e+09  
+    Y6_pystacked   1  2.875e+09   2.630e+09   2.535e+09   2.170e+09   2.630e+09   4.408e+09  
+    Y6_pystacked  10  2.819e+09   2.627e+09   2.721e+09   2.667e+09   3.498e+09   2.584e+09  
+    Y6_pystacked   2  2.963e+09   3.142e+09   3.196e+09   1.954e+09   3.085e+09   3.437e+09  
+    Y6_pystacked   3  2.839e+09   2.572e+09   2.109e+09   3.716e+09   2.458e+09   3.338e+09  
+    Y6_pystacked   4  2.964e+09   1.533e+09   2.222e+09   4.748e+09   3.274e+09   3.041e+09  
+    Y6_pystacked   5  2.863e+09   2.250e+09   3.757e+09   3.036e+09   3.358e+09   1.916e+09  
+    Y6_pystacked   6  2.816e+09   1.482e+09   4.426e+09   1.736e+09   2.977e+09   3.459e+09  
+    Y6_pystacked   7  2.868e+09   2.604e+09   1.861e+09   3.858e+09   2.927e+09   3.091e+09  
+    Y6_pystacked   8  2.863e+09   4.179e+09   2.355e+09   2.342e+09   2.804e+09   2.636e+09  
+    Y6_pystacked   9  2.847e+09   4.047e+09   3.934e+09   2.356e+09   1.215e+09   2.684e+09  
+    Y_net_tfa_ss   1  1.610e+09   2.328e+09   1.541e+09   1.377e+09   1.377e+09   1.426e+09  
+    Y_net_tfa_ss  10  1.575e+09   1.564e+09   1.623e+09   1.631e+09   1.355e+09   1.701e+09  
+    Y_net_tfa_ss   2  1.472e+09   1.344e+09   1.441e+09   1.455e+09   1.730e+09   1.389e+09  
+    Y_net_tfa_ss   3  1.541e+09   1.308e+09   1.428e+09   1.415e+09   1.766e+09   1.788e+09  
+    Y_net_tfa_ss   4  1.558e+09   1.273e+09   1.822e+09   1.856e+09   1.518e+09   1.321e+09  
+    Y_net_tfa_ss   5  1.607e+09   1.380e+09   1.434e+09   1.439e+09   1.393e+09   2.388e+09  
+    Y_net_tfa_ss   6  1.586e+09   1.271e+09   1.533e+09   1.625e+09   1.756e+09   1.747e+09  
+    Y_net_tfa_ss   7  1.621e+09   1.807e+09   1.261e+09   2.373e+09   1.230e+09   1.432e+09  
+    Y_net_tfa_ss   8  1.555e+09   1.706e+09   1.919e+09   1.526e+09   1.424e+09   1.198e+09  
+    Y_net_tfa_ss   9  1.604e+09   1.641e+09   2.269e+09   1.484e+09   1.423e+09   1.202e+09  
+
+. 
+. *** Look at stacking weights
+. ddml extract, show(ssweights)
+
+short-stacked weights across resamples for e401
+final stacking estimator: nnls1
+                  learner  mean_weight        rep_1        rep_2        rep_3        rep_4        rep_5
+    D1_logit            1    4.024e-18    1.004e-17            0    1.005e-17            0            0
+D2_pystacked            2      .275434     .2807837    .21119045    .23589327    .30276363    .26881547
+D3_pystacked            3    .18675729    .10960665    .13275811    .33427497    .30111597     .0214491
+D4_pystacked            4     .1391715    .20032567    .23057538    .07016842    .02690142     .2934535
+D5_pystacked            5    .29363231    .30280239    .29842204    .28978184    .27373837    .31336734
+D6_pystacked            6    .10154344     .1064816    .12705403     .0698815    .09548061    .10291458
+      D7_reg            7    .00346146            0            0    3.244e-17    2.022e-17            0
+      D8_reg            8    2.114e-17            0            0    4.611e-17    1.328e-17            0
+
+                    rep_6        rep_7        rep_8        rep_9       rep_10
+    D1_logit            0    6.072e-18            0    3.999e-19    1.368e-17
+D2_pystacked    .23712679    .30048768    .35283277    .31221542    .25223085
+D3_pystacked    .41239732    .14140546    .07874437            0     .3358209
+D4_pystacked    2.324e-17     .0538837    .19049596    .32591097    1.813e-17
+D5_pystacked    .31305804    .29938273    .28631052    .27270254    .28675728
+D6_pystacked    .03741785     .1702258    .09161638    .08917107    .12519096
+      D7_reg            0    .03461464            0            0            0
+      D8_reg            0    1.500e-17    7.403e-17    3.167e-17    3.129e-17
+
+short-stacked weights across resamples for net_tfa
+final stacking estimator: nnls1
+                  learner  mean_weight        rep_1        rep_2        rep_3        rep_4        rep_5
+      Y1_reg            1    .04425145    .11431214    .14996443            0            0    .01115899
+      Y2_reg            2    .07570348    .06431129            0            0    .28701874    .22405058
+Y3_pystacked            3    .19460423            0            0      .654261    .14405631    .05569875
+Y4_pystacked            4    .50445036     .7082388    .81305615            0    .56892495    .70909168
+Y5_pystacked            5    .00950411            0    .03697941            0            0            0
+Y6_pystacked            6    .17148637    .11313777            0      .345739            0            0
+
+                    rep_6        rep_7        rep_8        rep_9       rep_10
+      Y1_reg            0    .04810734    .03603091    .08294067            0
+      Y2_reg            0    .13331308            0    .04834111            0
+Y3_pystacked    .24246995            0    .56095774    .18649306    .10210551
+Y4_pystacked    .35941993    .51735668    .31086051    .53563865    .52191627
+Y5_pystacked      .016129            0            0     .0419327            0
+Y6_pystacked    .38198112     .3012229    .09215084    .10465381    .37597822
+
+. 
+. /*
+> *** Look at estimation results using linear model for E[Y|X] and logit for E[D|X]
+> *** in the first replication
+> ddml estimate, spec(1) rep(1) replay robust
+> 
+> *** Note that residuals have been saved. The moment condition for the PLM is 
+> *** equivalent to regressing Y-E[Y|X] on D-E[D|X]
+> *** Technically don't need the intercept, but it seems harmless and sometimes helps
+> reg Y1_reg_1 D1_logit_1 , robust
+> */
+. 
+. timer off 1
+
+. timer list
+   1:   3113.95 /        1 =    3113.9460
+
+. timer clear
+
+. 
+. log close
+      name:  <unnamed>
+       log:  C:\Users\chansen1\Documents\GitHub\NW2022_1Day\Stata Code\401kPLM.txt
+  log type:  text
+ closed on:  26 Jun 2024, 15:14:47
+----------------------------------------------------------------------------------------------------------

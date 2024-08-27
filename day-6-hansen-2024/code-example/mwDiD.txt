@@ -1,0 +1,893 @@
+----------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  C:\Users\chansen1\Documents\GitHub\NW2022_1Day\Stata Code\mwDiD.txt
+  log type:  text
+ opened on:  28 Jun 2024, 08:41:48
+
+. 
+. clear all
+
+.  
+. * Load data. Assumes I am in my code subfolder *
+. import delimited using "..\Data\mwexample.csv", clear 
+(encoding automatically selected: ISO-8859-1)
+(19 vars, 17,549 obs)
+
+. 
+. *** Set seed for reproducibility
+. set seed 73023
+
+. 
+. *** Probably a slicker way to do all of this
+. *** Set up some panel stuff
+. tsset countyreal year
+
+Panel variable: countyreal (strongly balanced)
+ Time variable: year, 2001 to 2007
+         Delta: 1 unit
+
+. 
+. * Generate initial conditions
+. bysort countyreal (year): gen lemp0 = lemp[1]
+
+. bysort countyreal (year): gen lpop0 = lpop[1]
+
+. bysort countyreal (year): gen lpay0 = lavg_pay[1]
+
+. 
+. list lemp lemp0 lpop lpop0 lavg_pay lpay0 in 1/14
+
+     +-----------------------------------------------------------------+
+     |     lemp      lemp0       lpop      lpop0   lavg_pay      lpay0 |
+     |-----------------------------------------------------------------|
+  1. |  8.73069    8.73069   12.84025   12.84025   10.45602   10.45602 |
+  2. |   8.5413    8.73069   12.82912   12.84025   10.46376   10.45602 |
+  3. | 8.461469    8.73069   12.85153   12.84025   10.48679   10.45602 |
+  4. | 8.336869    8.73069   12.86893   12.84025   10.53673   10.45602 |
+  5. | 8.340218    8.73069   12.89876   12.84025   10.55527   10.45602 |
+     |-----------------------------------------------------------------|
+  6. | 8.378161    8.73069   12.92502   12.84025   10.57832   10.45602 |
+  7. | 8.487352    8.73069   12.94707   12.84025   10.60641   10.45602 |
+  8. | 5.556828   5.556828   9.614138   9.614138    10.0575    10.0575 |
+  9. | 5.356586   5.556828   9.623972   9.614138   10.09712    10.0575 |
+ 10. | 5.389072   5.556828   9.620859   9.614138   10.10761    10.0575 |
+     |-----------------------------------------------------------------|
+ 11. | 5.356586   5.556828   9.626548   9.614138   10.14034    10.0575 |
+ 12. | 5.303305   5.556828   9.637959   9.614138    10.1755    10.0575 |
+ 13. | 5.342334   5.556828   9.633056   9.614138   10.21859    10.0575 |
+ 14. | 5.220356   5.556828   9.635412   9.614138    10.2897    10.0575 |
+     +-----------------------------------------------------------------+
+
+. 
+. * We are going to look at ATET for observations treated in 2004
+. * 2003 will serve as the baseline pre-period
+. bysort countyreal (year): gen lemp03 = lemp[3]
+
+. list countyreal year lemp lemp03 in 1/14
+
+     +---------------------------------------+
+     | county~l   year       lemp     lemp03 |
+     |---------------------------------------|
+  1. |     8001   2001    8.73069   8.461469 |
+  2. |     8001   2002     8.5413   8.461469 |
+  3. |     8001   2003   8.461469   8.461469 |
+  4. |     8001   2004   8.336869   8.461469 |
+  5. |     8001   2005   8.340218   8.461469 |
+     |---------------------------------------|
+  6. |     8001   2006   8.378161   8.461469 |
+  7. |     8001   2007   8.487352   8.461469 |
+  8. |     8003   2001   5.556828   5.389072 |
+  9. |     8003   2002   5.356586   5.389072 |
+ 10. |     8003   2003   5.389072   5.389072 |
+     |---------------------------------------|
+ 11. |     8003   2004   5.356586   5.389072 |
+ 12. |     8003   2005   5.303305   5.389072 |
+ 13. |     8003   2006   5.342334   5.389072 |
+ 14. |     8003   2007   5.220356   5.389072 |
+     +---------------------------------------+
+
+. 
+. * We will look at effect in 2002 (``pre-trend'')
+. bysort countyreal (year): gen lemp02 = lemp[2]
+
+. * We will look at effect in 2004-2007
+. bysort countyreal (year): gen lemp04 = lemp[4]
+
+. bysort countyreal (year): gen lemp05 = lemp[5]
+
+. bysort countyreal (year): gen lemp06 = lemp[6]
+
+. bysort countyreal (year): gen lemp07 = lemp[7]
+
+. 
+. * Change in outcome variables
+. gen dy02 = lemp02-lemp03
+
+. gen dy04 = lemp04-lemp03
+
+. gen dy05 = lemp05-lemp03
+
+. gen dy06 = lemp06-lemp03
+
+. gen dy07 = lemp07-lemp03
+
+. 
+. * Cohort of interest
+. gen G04 = (g == 2004)
+
+. 
+. * Standardize our control variables
+. egen s_lemp0 = std(lemp0)
+
+. egen s_lpop0 = std(lpop0)
+
+. egen s_lpay0 = std(lpay0)
+
+. 
+. * At this point, have flattened everything so don't need the panel anymore
+. * for estimating the effect for the 2004 cohort
+. * Just drop everything so we're a cross-section again
+. drop if year < 2007
+(15,042 observations deleted)
+
+. 
+. * Create region dummies, polynomials and interactions
+. gen s_lemp0_1 = s_lemp0
+
+. gen s_lemp0_2 = s_lemp0^2
+
+. gen s_lemp0_3 = s_lemp0^3
+
+. 
+. gen s_lpop0_1 = s_lpop0
+
+. gen s_lpop0_2 = s_lpop0^2
+
+. gen s_lpop0_3 = s_lpop0^3
+
+. 
+. gen s_lpay0_1 = s_lpay0
+
+. gen s_lpay0_2 = s_lpay0^2
+
+. gen s_lpay0_3 = s_lpay0^3
+
+. 
+. qui tab region , gen(regdum)
+
+. 
+. *** Control variable sets
+. global Xr regdum1 regdum2 regdum3 regdum4 
+
+. global Xc s_lemp0_1 s_lpop0_1 s_lpay0_1
+
+. global Xemp s_lemp0_1 s_lemp0_2 s_lemp0_3
+
+. global Xpop s_lpop0_1 s_lpop0_2 s_lpop0_3
+
+. global Xpay s_lpay0_1 s_lpay0_2 s_lpay0_3
+
+. global D G04
+
+. 
+. *** Model for 2002 effect
+. global Y dy02
+
+. 
+. ddml init interactive if (g == 0 | g > 2002) , mname(m02) kfolds(5) reps(10)
+
+. 
+. *** add learners for E[Y|D,X]
+. ddml E[Y|X,D], mname(m02) learner(Y1_02): reg $Y
+Learner Y1_02 added successfully.
+
+. ddml E[Y|X,D], mname(m02) learner(Y2_02): reg $Y $Xr $Xc
+Learner Y2_02 added successfully.
+
+. ddml E[Y|X,D], mname(m02) learner(Y3_02): ///
+>         pystacked $Y $Xr##c.($Xc) || method(lassocv)
+Learner Y3_02 added successfully.
+
+. ddml E[Y|X,D], mname(m02) learner(Y4_02): ///
+>         pystacked $Y $Xr##c.($Xc) || method(ridgecv)
+Learner Y4_02 added successfully.
+
+. ddml E[Y|X,D], mname(m02) learner(Y5_02): ///
+>         pystacked $Y $Xr##c.($Xemp)##c.($Xpop)##c.($Xpay) || method(lassocv)
+Learner Y5_02 added successfully.
+
+. ddml E[Y|X,D], mname(m02) learner(Y6_02): ///
+>         pystacked $Y $Xr##c.($Xemp)##c.($Xpop)##c.($Xpay) || method(ridgecv)
+Learner Y6_02 added successfully.
+
+. ddml E[Y|X,D], mname(m02) learner(Y7_02): pystacked $Y $Xr $Xc || method(rf) ///
+>         opt(n_estimators(500) min_samples_leaf(3) random_state(720))
+Learner Y7_02 added successfully.
+
+. ddml E[Y|X,D], mname(m02) learner(Y8_02): pystacked $Y $Xr $Xc || method(rf) ///
+>         opt(n_estimators(500) min_samples_leaf(20) random_state(720))
+Learner Y8_02 added successfully.
+
+.         
+. *** add learners for E[D|X]
+. ddml E[D|X], mname(m02) learner(D1_02): reg $D
+Learner D1_02 added successfully.
+
+. ddml E[D|X], mname(m02) learner(D2_02): pystacked $D $Xr $Xc || method(logit) , type(class)
+Learner D2_02 added successfully.
+
+. ddml E[D|X], mname(m02) learner(D3_02): ///
+>         pystacked $D $Xr##c.($Xc) || method(lassocv) , type(class)
+Learner D3_02 added successfully.
+
+. ddml E[D|X], mname(m02) learner(D4_02): ///
+>         pystacked $D $Xr##c.($Xc) || method(ridgecv) , type(class)
+Learner D4_02 added successfully.
+
+. ddml E[D|X], mname(m02) learner(D5_02): ///
+>         pystacked $D $Xr##c.($Xemp)##c.($Xpop)##c.($Xpay) || method(lassocv) , type(class)
+Learner D5_02 added successfully.
+
+. ddml E[D|X], mname(m02) learner(D6_02): ///
+>         pystacked $D $Xr##c.($Xemp)##c.($Xpop)##c.($Xpay) || method(ridgecv) , type(class)
+Learner D6_02 added successfully.
+
+. ddml E[D|X], mname(m02) learner(D7_02): pystacked $D $Xr $Xc || method(rf) ///
+>         opt(n_estimators(500) min_samples_leaf(3) random_state(720)) , type(class)
+Learner D7_02 added successfully.
+
+. ddml E[D|X], mname(m02) learner(D8_02): pystacked $D $Xr $Xc || method(rf) ///
+>         opt(n_estimators(500) min_samples_leaf(20) random_state(720)) , type(class)
+Learner D8_02 added successfully.
+
+. 
+. ** cross-fitting
+. ddml crossfit , mname(m02) 
+Cross-fitting E[y|X,D] equation: dy02
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting E[D|X] equation: G04
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+
+. 
+. *** Estimation results
+. ddml estimate, mname(m02) robust atet
+
+
+Model:                  interactive, crossfit folds k=5, resamples r=10
+Mata global (mname):    m02
+Dependent variable (Y): dy02
+ dy02 learners:         Y1_02 Y2_02 Y3_02 Y4_02 Y5_02 Y6_02 Y7_02 Y8_02
+D equations (1):        G04
+ G04 learners:          D1_02 D2_02 D3_02 D4_02 D5_02 D6_02 D7_02 D8_02
+
+DDML estimation results (ATET):
+spec  r  Y(0) learner  Y(1) learner     D learner         b        SE 
+ mse  1         Y2_02         Y5_02         D2_02     0.009    (0.018)
+ mse  2         Y2_02         Y1_02         D2_02     0.007    (0.017)
+ mse  3         Y2_02         Y1_02         D8_02    -0.000    (0.013)
+ mse  4         Y2_02         Y8_02         D2_02     0.014    (0.017)
+ mse  5         Y2_02         Y1_02         D8_02    -0.009    (0.016)
+ mse  6         Y2_02         Y8_02         D8_02     0.002    (0.016)
+ mse  7         Y2_02         Y8_02         D8_02    -0.001    (0.015)
+ mse  8         Y2_02         Y8_02         D8_02    -0.003    (0.015)
+ mse  9         Y1_02         Y4_02         D2_02     0.012    (0.018)
+ mse 10         Y2_02         Y8_02         D2_02     0.009    (0.019)
+mse = minimum MSE specification for that resample.
+
+Mean/med Y(0) learner  Y(1) learner     D learner         b        SE 
+ mse mn     [min-mse]     [min-mse]     [min-mse]     0.004    (0.017)
+ mse md     [min-mse]     [min-mse]     [min-mse]     0.004    (0.018)
+
+Median over 10 min-mse resamples (ATET)
+E[y|X,D=0]   = Y2_020                              Number of obs   =      2491
+E[y|X,D=1]   = Y5_021
+E[D|X]       = D2_02
+------------------------------------------------------------------------------
+             |               Robust
+        dy02 | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         G04 |   .0043098   .0176771     0.24   0.807    -.0303367    .0389563
+------------------------------------------------------------------------------
+Warning: 10 resamples had propensity scores trimmed to lower limit .01.
+
+Summary over 10 resamples:
+       D eqn      mean       min       p25       p50       p75       max
+         G04      0.0039   -0.0090   -0.0005    0.0043    0.0092    0.0138
+
+. 
+. *** Model for 2004 effect
+. global Y dy04
+
+. 
+. ddml init interactive if (g == 0 | g > 2003) , mname(m04) kfolds(5) reps(10)
+
+. 
+. *** add learners for E[Y|D,X]
+. ddml E[Y|X,D], mname(m04) learner(Y1_04): reg $Y
+Learner Y1_04 added successfully.
+
+. ddml E[Y|X,D], mname(m04) learner(Y2_04): reg $Y $Xr $Xc
+Learner Y2_04 added successfully.
+
+. ddml E[Y|X,D], mname(m04) learner(Y3_04): ///
+>         pystacked $Y $Xr##c.($Xc) || method(lassocv)
+Learner Y3_04 added successfully.
+
+. ddml E[Y|X,D], mname(m04) learner(Y4_04): ///
+>         pystacked $Y $Xr##c.($Xc) || method(ridgecv)
+Learner Y4_04 added successfully.
+
+. ddml E[Y|X,D], mname(m04) learner(Y5_04): ///
+>         pystacked $Y $Xr##c.($Xemp)##c.($Xpop)##c.($Xpay) || method(lassocv)
+Learner Y5_04 added successfully.
+
+. ddml E[Y|X,D], mname(m04) learner(Y6_04): ///
+>         pystacked $Y $Xr##c.($Xemp)##c.($Xpop)##c.($Xpay) || method(ridgecv)
+Learner Y6_04 added successfully.
+
+. ddml E[Y|X,D], mname(m04) learner(Y7_04): pystacked $Y $Xr $Xc || method(rf) ///
+>         opt(n_estimators(500) min_samples_leaf(3) random_state(720))
+Learner Y7_04 added successfully.
+
+. ddml E[Y|X,D], mname(m04) learner(Y8_04): pystacked $Y $Xr $Xc || method(rf) ///
+>         opt(n_estimators(500) min_samples_leaf(20) random_state(720))
+Learner Y8_04 added successfully.
+
+.         
+. *** add learners for E[D|X]
+. ddml E[D|X], mname(m04) learner(D1_04): reg $D
+Learner D1_04 added successfully.
+
+. ddml E[D|X], mname(m04) learner(D2_04): pystacked $D $Xr $Xc || method(logit) , type(class)
+Learner D2_04 added successfully.
+
+. ddml E[D|X], mname(m04) learner(D3_04): ///
+>         pystacked $D $Xr##c.($Xc) || method(lassocv) , type(class)
+Learner D3_04 added successfully.
+
+. ddml E[D|X], mname(m04) learner(D4_04): ///
+>         pystacked $D $Xr##c.($Xc) || method(ridgecv) , type(class)
+Learner D4_04 added successfully.
+
+. ddml E[D|X], mname(m04) learner(D5_04): ///
+>         pystacked $D $Xr##c.($Xemp)##c.($Xpop)##c.($Xpay) || method(lassocv) , type(class)
+Learner D5_04 added successfully.
+
+. ddml E[D|X], mname(m04) learner(D6_04): ///
+>         pystacked $D $Xr##c.($Xemp)##c.($Xpop)##c.($Xpay) || method(ridgecv) , type(class)
+Learner D6_04 added successfully.
+
+. ddml E[D|X], mname(m04) learner(D7_04): pystacked $D $Xr $Xc || method(rf) ///
+>         opt(n_estimators(500) min_samples_leaf(3) random_state(720)) , type(class)
+Learner D7_04 added successfully.
+
+. ddml E[D|X], mname(m04) learner(D8_04): pystacked $D $Xr $Xc || method(rf) ///
+>         opt(n_estimators(500) min_samples_leaf(20) random_state(720)) , type(class)
+Learner D8_04 added successfully.
+
+. 
+. ** cross-fitting
+. ddml crossfit , mname(m04) 
+Cross-fitting E[y|X,D] equation: dy04
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting E[D|X] equation: G04
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+
+. 
+. *** Estimation results
+. ddml estimate, mname(m04) robust atet
+
+
+Model:                  interactive, crossfit folds k=5, resamples r=10
+Mata global (mname):    m04
+Dependent variable (Y): dy04
+ dy04 learners:         Y1_04 Y2_04 Y3_04 Y4_04 Y5_04 Y6_04 Y7_04 Y8_04
+D equations (1):        G04
+ G04 learners:          D1_04 D2_04 D3_04 D4_04 D5_04 D6_04 D7_04 D8_04
+
+DDML estimation results (ATET):
+spec  r  Y(0) learner  Y(1) learner     D learner         b        SE 
+ mse  1         Y4_04         Y3_04         D2_04    -0.020    (0.022)
+ mse  2         Y4_04         Y2_04         D8_04    -0.028    (0.020)
+ mse  3         Y4_04         Y4_04         D8_04    -0.020    (0.019)
+ mse  4         Y4_04         Y2_04         D8_04    -0.022    (0.019)
+ mse  5         Y6_04         Y8_04         D2_04    -0.027    (0.023)
+ mse  6         Y4_04         Y7_04         D2_04    -0.025    (0.022)
+ mse  7         Y1_04         Y5_04         D2_04    -0.027    (0.030)
+ mse  8         Y4_04         Y2_04         D8_04    -0.024    (0.020)
+ mse  9         Y4_04         Y8_04         D8_04    -0.040    (0.029)
+ mse 10         Y2_04         Y2_04         D8_04    -0.023    (0.018)
+mse = minimum MSE specification for that resample.
+
+Mean/med Y(0) learner  Y(1) learner     D learner         b        SE 
+ mse mn     [min-mse]     [min-mse]     [min-mse]    -0.026    (0.022)
+ mse md     [min-mse]     [min-mse]     [min-mse]    -0.025    (0.021)
+
+Median over 10 min-mse resamples (ATET)
+E[y|X,D=0]   = Y4_040                              Number of obs   =      2491
+E[y|X,D=1]   = Y3_041
+E[D|X]       = D2_04
+------------------------------------------------------------------------------
+             |               Robust
+        dy04 | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         G04 |  -.0247883   .0210607    -1.18   0.239    -.0660665    .0164899
+------------------------------------------------------------------------------
+Warning: 10 resamples had propensity scores trimmed to lower limit .01.
+
+Summary over 10 resamples:
+       D eqn      mean       min       p25       p50       p75       max
+         G04     -0.0256   -0.0401   -0.0274   -0.0248   -0.0222   -0.0197
+
+. 
+. *** Model for 2005 effect
+. global Y dy05
+
+. 
+. ddml init interactive if (g == 0 | g == 2004 | g > 2005) , mname(m05) kfolds(5) reps(10)
+
+. 
+. *** add learners for E[Y|D,X]
+. ddml E[Y|X,D], mname(m05) learner(Y1_05): reg $Y
+Learner Y1_05 added successfully.
+
+. ddml E[Y|X,D], mname(m05) learner(Y2_05): reg $Y $Xr $Xc
+Learner Y2_05 added successfully.
+
+. ddml E[Y|X,D], mname(m05) learner(Y3_05): ///
+>         pystacked $Y $Xr##c.($Xc) || method(lassocv)
+Learner Y3_05 added successfully.
+
+. ddml E[Y|X,D], mname(m05) learner(Y4_05): ///
+>         pystacked $Y $Xr##c.($Xc) || method(ridgecv)
+Learner Y4_05 added successfully.
+
+. ddml E[Y|X,D], mname(m05) learner(Y5_05): ///
+>         pystacked $Y $Xr##c.($Xemp)##c.($Xpop)##c.($Xpay) || method(lassocv)
+Learner Y5_05 added successfully.
+
+. ddml E[Y|X,D], mname(m05) learner(Y6_05): ///
+>         pystacked $Y $Xr##c.($Xemp)##c.($Xpop)##c.($Xpay) || method(ridgecv)
+Learner Y6_05 added successfully.
+
+. ddml E[Y|X,D], mname(m05) learner(Y7_05): pystacked $Y $Xr $Xc || method(rf) ///
+>         opt(n_estimators(500) min_samples_leaf(3) random_state(720))
+Learner Y7_05 added successfully.
+
+. ddml E[Y|X,D], mname(m05) learner(Y8_05): pystacked $Y $Xr $Xc || method(rf) ///
+>         opt(n_estimators(500) min_samples_leaf(20) random_state(720))
+Learner Y8_05 added successfully.
+
+.         
+. *** add learners for E[D|X]
+. ddml E[D|X], mname(m05) learner(D1_05): reg $D
+Learner D1_05 added successfully.
+
+. ddml E[D|X], mname(m05) learner(D2_05): pystacked $D $Xr $Xc || method(logit) , type(class)
+Learner D2_05 added successfully.
+
+. ddml E[D|X], mname(m05) learner(D3_05): ///
+>         pystacked $D $Xr##c.($Xc) || method(lassocv) , type(class)
+Learner D3_05 added successfully.
+
+. ddml E[D|X], mname(m05) learner(D4_05): ///
+>         pystacked $D $Xr##c.($Xc) || method(ridgecv) , type(class)
+Learner D4_05 added successfully.
+
+. ddml E[D|X], mname(m05) learner(D5_05): ///
+>         pystacked $D $Xr##c.($Xemp)##c.($Xpop)##c.($Xpay) || method(lassocv) , type(class)
+Learner D5_05 added successfully.
+
+. ddml E[D|X], mname(m05) learner(D6_05): ///
+>         pystacked $D $Xr##c.($Xemp)##c.($Xpop)##c.($Xpay) || method(ridgecv) , type(class)
+Learner D6_05 added successfully.
+
+. ddml E[D|X], mname(m05) learner(D7_05): pystacked $D $Xr $Xc || method(rf) ///
+>         opt(n_estimators(500) min_samples_leaf(3) random_state(720)) , type(class)
+Learner D7_05 added successfully.
+
+. ddml E[D|X], mname(m05) learner(D8_05): pystacked $D $Xr $Xc || method(rf) ///
+>         opt(n_estimators(500) min_samples_leaf(20) random_state(720)) , type(class)
+Learner D8_05 added successfully.
+
+. 
+. ** cross-fitting
+. ddml crossfit , mname(m05) 
+Cross-fitting E[y|X,D] equation: dy05
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting E[D|X] equation: G04
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+
+. 
+. *** Estimation results
+. ddml estimate, mname(m05) robust atet
+
+
+Model:                  interactive, crossfit folds k=5, resamples r=10
+Mata global (mname):    m05
+Dependent variable (Y): dy05
+ dy05 learners:         Y1_05 Y2_05 Y3_05 Y4_05 Y5_05 Y6_05 Y7_05 Y8_05
+D equations (1):        G04
+ G04 learners:          D1_05 D2_05 D3_05 D4_05 D5_05 D6_05 D7_05 D8_05
+
+DDML estimation results (ATET):
+spec  r  Y(0) learner  Y(1) learner     D learner         b        SE 
+ mse  1         Y2_05         Y7_05         D8_05    -0.057    (0.020)
+ mse  2         Y2_05         Y7_05         D8_05    -0.045    (0.021)
+ mse  3         Y2_05         Y6_05         D2_05    -0.056    (0.023)
+ mse  4         Y2_05         Y6_05         D8_05    -0.057    (0.024)
+ mse  5         Y2_05         Y7_05         D2_05    -0.054    (0.022)
+ mse  6         Y2_05         Y6_05         D8_05    -0.047    (0.022)
+ mse  7         Y2_05         Y6_05         D2_05    -0.058    (0.026)
+ mse  8         Y2_05         Y7_05         D8_05    -0.052    (0.024)
+ mse  9         Y4_05         Y5_05         D8_05    -0.054    (0.021)
+ mse 10         Y2_05         Y7_05         D8_05    -0.053    (0.021)
+mse = minimum MSE specification for that resample.
+
+Mean/med Y(0) learner  Y(1) learner     D learner         b        SE 
+ mse mn     [min-mse]     [min-mse]     [min-mse]    -0.053    (0.023)
+ mse md     [min-mse]     [min-mse]     [min-mse]    -0.054    (0.023)
+
+Median over 10 min-mse resamples (ATET)
+E[y|X,D=0]   = Y2_050                              Number of obs   =      2429
+E[y|X,D=1]   = Y7_051
+E[D|X]       = D8_05
+------------------------------------------------------------------------------
+             |               Robust
+        dy05 | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         G04 |  -.0537807   .0230743    -2.33   0.020    -.0990054    -.008556
+------------------------------------------------------------------------------
+Warning: 10 resamples had propensity scores trimmed to lower limit .01.
+
+Summary over 10 resamples:
+       D eqn      mean       min       p25       p50       p75       max
+         G04     -0.0533   -0.0581   -0.0569   -0.0538   -0.0516   -0.0451
+
+. 
+. *** Model for 2006 effect
+. global Y dy06
+
+. 
+. ddml init interactive if (g == 0 | g == 2004 | g > 2006) , mname(m06) kfolds(5) reps(10)
+
+. 
+. *** add learners for E[Y|D,X]
+. ddml E[Y|X,D], mname(m06) learner(Y1_06): reg $Y
+Learner Y1_06 added successfully.
+
+. ddml E[Y|X,D], mname(m06) learner(Y2_06): reg $Y $Xr $Xc
+Learner Y2_06 added successfully.
+
+. ddml E[Y|X,D], mname(m06) learner(Y3_06): ///
+>         pystacked $Y $Xr##c.($Xc) || method(lassocv)
+Learner Y3_06 added successfully.
+
+. ddml E[Y|X,D], mname(m06) learner(Y4_06): ///
+>         pystacked $Y $Xr##c.($Xc) || method(ridgecv)
+Learner Y4_06 added successfully.
+
+. ddml E[Y|X,D], mname(m06) learner(Y5_06): ///
+>         pystacked $Y $Xr##c.($Xemp)##c.($Xpop)##c.($Xpay) || method(lassocv)
+Learner Y5_06 added successfully.
+
+. ddml E[Y|X,D], mname(m06) learner(Y6_06): ///
+>         pystacked $Y $Xr##c.($Xemp)##c.($Xpop)##c.($Xpay) || method(ridgecv)
+Learner Y6_06 added successfully.
+
+. ddml E[Y|X,D], mname(m06) learner(Y7_06): pystacked $Y $Xr $Xc || method(rf) ///
+>         opt(n_estimators(500) min_samples_leaf(3) random_state(720))
+Learner Y7_06 added successfully.
+
+. ddml E[Y|X,D], mname(m06) learner(Y8_06): pystacked $Y $Xr $Xc || method(rf) ///
+>         opt(n_estimators(500) min_samples_leaf(20) random_state(720))
+Learner Y8_06 added successfully.
+
+.         
+. *** add learners for E[D|X]
+. ddml E[D|X], mname(m06) learner(D1_06): reg $D
+Learner D1_06 added successfully.
+
+. ddml E[D|X], mname(m06) learner(D2_06): pystacked $D $Xr $Xc || method(logit) , type(class)
+Learner D2_06 added successfully.
+
+. ddml E[D|X], mname(m06) learner(D3_06): ///
+>         pystacked $D $Xr##c.($Xc) || method(lassocv) , type(class)
+Learner D3_06 added successfully.
+
+. ddml E[D|X], mname(m06) learner(D4_06): ///
+>         pystacked $D $Xr##c.($Xc) || method(ridgecv) , type(class)
+Learner D4_06 added successfully.
+
+. ddml E[D|X], mname(m06) learner(D5_06): ///
+>         pystacked $D $Xr##c.($Xemp)##c.($Xpop)##c.($Xpay) || method(lassocv) , type(class)
+Learner D5_06 added successfully.
+
+. ddml E[D|X], mname(m06) learner(D6_06): ///
+>         pystacked $D $Xr##c.($Xemp)##c.($Xpop)##c.($Xpay) || method(ridgecv) , type(class)
+Learner D6_06 added successfully.
+
+. ddml E[D|X], mname(m06) learner(D7_06): pystacked $D $Xr $Xc || method(rf) ///
+>         opt(n_estimators(500) min_samples_leaf(3) random_state(720)) , type(class)
+Learner D7_06 added successfully.
+
+. ddml E[D|X], mname(m06) learner(D8_06): pystacked $D $Xr $Xc || method(rf) ///
+>         opt(n_estimators(500) min_samples_leaf(20) random_state(720)) , type(class)
+Learner D8_06 added successfully.
+
+. 
+. ** cross-fitting
+. ddml crossfit , mname(m06) 
+Cross-fitting E[y|X,D] equation: dy06
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting E[D|X] equation: G04
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+
+. 
+. *** Estimation results
+. ddml estimate, mname(m06) robust atet
+
+
+Model:                  interactive, crossfit folds k=5, resamples r=10
+Mata global (mname):    m06
+Dependent variable (Y): dy06
+ dy06 learners:         Y1_06 Y2_06 Y3_06 Y4_06 Y5_06 Y6_06 Y7_06 Y8_06
+D equations (1):        G04
+ G04 learners:          D1_06 D2_06 D3_06 D4_06 D5_06 D6_06 D7_06 D8_06
+
+DDML estimation results (ATET):
+spec  r  Y(0) learner  Y(1) learner     D learner         b        SE 
+ mse  1         Y2_06         Y6_06         D8_06    -0.048    (0.019)
+ mse  2         Y2_06         Y8_06         D8_06    -0.052    (0.021)
+ mse  3         Y3_06         Y5_06         D2_06    -0.054    (0.021)
+ mse  4         Y2_06         Y6_06         D8_06    -0.044    (0.020)
+ mse  5         Y2_06         Y8_06         D8_06    -0.055    (0.021)
+ mse  6         Y3_06         Y8_06         D8_06    -0.053    (0.020)
+ mse  7         Y2_06         Y8_06         D8_06    -0.053    (0.020)
+ mse  8         Y2_06         Y5_06         D2_06    -0.050    (0.021)
+ mse  9         Y2_06         Y5_06         D2_06    -0.046    (0.020)
+ mse 10         Y2_06         Y4_06         D8_06    -0.044    (0.020)
+mse = minimum MSE specification for that resample.
+
+Mean/med Y(0) learner  Y(1) learner     D learner         b        SE 
+ mse mn     [min-mse]     [min-mse]     [min-mse]    -0.050    (0.021)
+ mse md     [min-mse]     [min-mse]     [min-mse]    -0.051    (0.021)
+
+Median over 10 min-mse resamples (ATET)
+E[y|X,D=0]   = Y2_060                              Number of obs   =      2182
+E[y|X,D=1]   = Y6_061
+E[D|X]       = D8_06
+------------------------------------------------------------------------------
+             |               Robust
+        dy06 | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         G04 |  -.0508283   .0208742    -2.43   0.015     -.091741   -.0099156
+------------------------------------------------------------------------------
+Warning: 10 resamples had propensity scores trimmed to lower limit .01.
+
+Summary over 10 resamples:
+       D eqn      mean       min       p25       p50       p75       max
+         G04     -0.0498   -0.0546   -0.0532   -0.0508   -0.0458   -0.0437
+
+. 
+. *** Model for 2007 effect
+. global Y dy07
+
+. 
+. ddml init interactive if (g == 0 | g == 2004 | g > 2007) , mname(m07) kfolds(5) reps(10)
+
+. 
+. *** add learners for E[Y|D,X]
+. ddml E[Y|X,D], mname(m07) learner(Y1_07): reg $Y
+Learner Y1_07 added successfully.
+
+. ddml E[Y|X,D], mname(m07) learner(Y2_07): reg $Y $Xr $Xc
+Learner Y2_07 added successfully.
+
+. ddml E[Y|X,D], mname(m07) learner(Y3_07): ///
+>         pystacked $Y $Xr##c.($Xc) || method(lassocv)
+Learner Y3_07 added successfully.
+
+. ddml E[Y|X,D], mname(m07) learner(Y4_07): ///
+>         pystacked $Y $Xr##c.($Xc) || method(ridgecv)
+Learner Y4_07 added successfully.
+
+. ddml E[Y|X,D], mname(m07) learner(Y5_07): ///
+>         pystacked $Y $Xr##c.($Xemp)##c.($Xpop)##c.($Xpay) || method(lassocv)
+Learner Y5_07 added successfully.
+
+. ddml E[Y|X,D], mname(m07) learner(Y6_07): ///
+>         pystacked $Y $Xr##c.($Xemp)##c.($Xpop)##c.($Xpay) || method(ridgecv)
+Learner Y6_07 added successfully.
+
+. ddml E[Y|X,D], mname(m07) learner(Y7_07): pystacked $Y $Xr $Xc || method(rf) ///
+>         opt(n_estimators(500) min_samples_leaf(3) random_state(720))
+Learner Y7_07 added successfully.
+
+. ddml E[Y|X,D], mname(m07) learner(Y8_07): pystacked $Y $Xr $Xc || method(rf) ///
+>         opt(n_estimators(500) min_samples_leaf(20) random_state(720))
+Learner Y8_07 added successfully.
+
+.         
+. *** add learners for E[D|X]
+. ddml E[D|X], mname(m07) learner(D1_07): reg $D
+Learner D1_07 added successfully.
+
+. ddml E[D|X], mname(m07) learner(D2_07): pystacked $D $Xr $Xc || method(logit) , type(class)
+Learner D2_07 added successfully.
+
+. ddml E[D|X], mname(m07) learner(D3_07): ///
+>         pystacked $D $Xr##c.($Xc) || method(lassocv) , type(class)
+Learner D3_07 added successfully.
+
+. ddml E[D|X], mname(m07) learner(D4_07): ///
+>         pystacked $D $Xr##c.($Xc) || method(ridgecv) , type(class)
+Learner D4_07 added successfully.
+
+. ddml E[D|X], mname(m07) learner(D5_07): ///
+>         pystacked $D $Xr##c.($Xemp)##c.($Xpop)##c.($Xpay) || method(lassocv) , type(class)
+Learner D5_07 added successfully.
+
+. ddml E[D|X], mname(m07) learner(D6_07): ///
+>         pystacked $D $Xr##c.($Xemp)##c.($Xpop)##c.($Xpay) || method(ridgecv) , type(class)
+Learner D6_07 added successfully.
+
+. ddml E[D|X], mname(m07) learner(D7_07): pystacked $D $Xr $Xc || method(rf) ///
+>         opt(n_estimators(500) min_samples_leaf(3) random_state(720)) , type(class)
+Learner D7_07 added successfully.
+
+. ddml E[D|X], mname(m07) learner(D8_07): pystacked $D $Xr $Xc || method(rf) ///
+>         opt(n_estimators(500) min_samples_leaf(20) random_state(720)) , type(class)
+Learner D8_07 added successfully.
+
+. 
+. ** cross-fitting
+. ddml crossfit , mname(m07) 
+Cross-fitting E[y|X,D] equation: dy07
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting E[D|X] equation: G04
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+
+. 
+. *** Estimation results
+. ddml estimate, mname(m07) robust atet
+
+
+Model:                  interactive, crossfit folds k=5, resamples r=10
+Mata global (mname):    m07
+Dependent variable (Y): dy07
+ dy07 learners:         Y1_07 Y2_07 Y3_07 Y4_07 Y5_07 Y6_07 Y7_07 Y8_07
+D equations (1):        G04
+ G04 learners:          D1_07 D2_07 D3_07 D4_07 D5_07 D6_07 D7_07 D8_07
+
+DDML estimation results (ATET):
+spec  r  Y(0) learner  Y(1) learner     D learner         b        SE 
+ mse  1         Y3_07         Y8_07         D2_07    -0.092    (0.040)
+ mse  2         Y2_07         Y6_07         D2_07    -0.080    (0.036)
+ mse  3         Y2_07         Y8_07         D2_07    -0.065    (0.028)
+ mse  4         Y2_07         Y5_07         D2_07    -0.111    (0.051)
+ mse  5         Y2_07         Y8_07         D2_07    -0.075    (0.029)
+ mse  6         Y2_07         Y6_07         D2_07    -0.053    (0.035)
+ mse  7         Y2_07         Y8_07         D2_07    -0.089    (0.079)
+ mse  8         Y2_07         Y8_07         D2_07    -0.075    (0.034)
+ mse  9         Y3_07         Y8_07         D8_07    -0.066    (0.023)
+ mse 10         Y3_07         Y8_07         D2_07    -0.084    (0.038)
+mse = minimum MSE specification for that resample.
+
+Mean/med Y(0) learner  Y(1) learner     D learner         b        SE 
+ mse mn     [min-mse]     [min-mse]     [min-mse]    -0.079    (0.037)
+ mse md     [min-mse]     [min-mse]     [min-mse]    -0.078    (0.038)
+
+Median over 10 min-mse resamples (ATET)
+E[y|X,D=0]   = Y3_070                              Number of obs   =      1519
+E[y|X,D=1]   = Y8_071
+E[D|X]       = D2_07
+------------------------------------------------------------------------------
+             |               Robust
+        dy07 | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         G04 |  -.0779036   .0375711    -2.07   0.038    -.1515416   -.0042656
+------------------------------------------------------------------------------
+Warning: 10 resamples had propensity scores trimmed to lower limit .01.
+
+Summary over 10 resamples:
+       D eqn      mean       min       p25       p50       p75       max
+         G04     -0.0789   -0.1108   -0.0888   -0.0779   -0.0662   -0.0530
+
+. 
+. log close
+      name:  <unnamed>
+       log:  C:\Users\chansen1\Documents\GitHub\NW2022_1Day\Stata Code\mwDiD.txt
+  log type:  text
+ closed on:  28 Jun 2024, 10:31:29
+----------------------------------------------------------------------------------------------------------

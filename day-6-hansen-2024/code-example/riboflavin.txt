@@ -1,0 +1,137 @@
+----------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  C:\Users\chansen1\Documents\GitHub\NW2022_1Day\Stata Code\riboflavin.txt
+  log type:  text
+ opened on:  26 Jun 2024, 13:49:06
+
+. 
+. clear all
+
+. 
+. * Load data. Assumes I am in my code subfolder
+. import delimited using "..\Data\riboflavin.csv", clear 
+(encoding automatically selected: ISO-8859-1)
+(4,089 vars, 71 obs)
+
+. 
+. /*
+> * cvlasso here is REALLY slow
+> cvlasso y aadk_at-zur_at , nfolds(10) seed(727) 
+> local lam = e(lopt)
+> display "cv lambda : " `lam'
+> *cv lambda : 4.292581
+> 
+> lasso2 y aadk_at-zur_at , lambda(`lam')
+> */
+. lasso2 y aadk_at-zur_at , lambda(4.292581)
+
+---------------------------------------------------
+         Selected |           Lasso   Post-est OLS
+------------------+--------------------------------
+          argf_at |      -0.1931578     -0.2135596
+          dnaj_at |      -0.1028243      0.0748975
+          gapb_at |       0.0228403     -0.0556400
+          lysc_at |      -0.3277837     -0.4737255
+          pria_at |       0.1489310      0.3697775
+       spoiiaa_at |       0.0265312     -0.0217153
+        spovaa_at |       0.2755772      0.5151354
+          thia_at |      -0.0188845     -0.1152725
+          thik_at |      -0.0073635     -0.0388817
+          xhlb_at |       0.1509256      0.0803683
+          yacn_at |      -0.0469992     -0.1230789
+          ybfi_at |       0.1616642      0.0955900
+          ycdh_at |      -0.0002828      0.0468460
+          ycke_at |       0.0156304     -0.0084521
+          yclb_at |       0.2073468      0.3683424
+          yclf_at |      -0.0543962     -0.0913647
+          yddh_at |      -0.0495872     -0.0412020
+          yddk_at |      -0.1149803     -0.1987482
+          yebc_at |      -0.5679632     -0.6340540
+        yfhe_r_at |       0.1500189      0.0786535
+          yfio_at |       0.2523470      0.5955771
+          yfir_at |       0.0122488     -0.1039042
+        yhds_r_at |       0.1738323      0.3204619
+          ykba_at |       0.1120072      0.1572513
+          ykvj_at |       0.0895578      0.3798976
+          ylxw_at |       0.0866939      0.1221639
+          ymfe_at |       0.0510141      0.1138670
+          yoab_at |      -0.7972943     -0.6965633
+          ypga_at |      -0.0370213     -0.1590029
+          yqjt_at |       0.0890178      0.2138341
+          yqju_at |       0.2146628      0.2498894
+          yrvj_at |      -0.0626498     -0.0480224
+          ytgb_at |      -0.0483968     -0.1071183
+          yuid_at |       0.0172418      0.1443809
+          ywro_at |      -0.0559521     -0.3295373
+          yxld_at |      -0.2274677     -0.2617252
+          yxle_at |      -0.0872869     -0.0805074
+          yybg_at |      -0.1013504     -0.1707905
+          yyco_at |      -0.0197286     -0.3732196
+          yyda_at |      -0.0720810      0.0851931
+------------------+--------------------------------
+   Partialled-out*|
+------------------+--------------------------------
+            _cons |       0.2590588     -1.3174333
+---------------------------------------------------
+
+. matrix bcv = e(betaAll)
+
+. matrix bcv = bcv'
+
+. 
+. rlasso y aadk_at-zur_at , robust seed(72723) lassopsi xdep
+Warning: . negative penalty loadings encountered/adjusted.
+Variables affected: 
+
+---------------------------------------------------
+         Selected |           Lasso   Post-est OLS
+------------------+--------------------------------
+       spoiisa_at |       0.4335414      0.6754484
+          xkds_at |       0.0792059      0.5010252
+          ycke_at |       0.1466281      0.4271981
+          ynza_at |       0.0332391     -0.2041408
+          ytgb_at |      -0.0234856     -0.1378925
+          yxle_at |      -0.1662135     -0.3369896
+            _cons |*    -11.1242677    -14.4786662
+---------------------------------------------------
+*Not penalized
+
+. matrix b1 = e(betaAll)
+
+. matrix b1 = b1'
+
+. 
+. svmat bcv
+number of observations will be reset to 4089
+Press any key to continue, or Break to abort
+Number of observations (_N) was 71, now 4,089.
+
+. svmat b1
+
+. 
+. replace bcv = abs(bcv)
+(21 real changes made)
+
+. replace b1 = abs(b1)
+(3 real changes made)
+
+. 
+. gen vnum = _n
+
+. 
+. twoway (scatter b1 vnum) (scatter bcv vnum , color(red)) if vnum < _N , ///
+>         legend(label(1 "Plug-in") label(2 "CV") pos(2) ring(0)) xtitle("Var Number") ///
+>         ytitle("|b{sub:j}|") title("Absolute value of lasso coefficients")
+
+. graph export ..\Slides\figures\Stata_RiboflavinCoef.png , replace
+file ..\Slides\figures\Stata_RiboflavinCoef.png saved as PNG format
+
+. graph close
+
+.         
+. log close
+      name:  <unnamed>
+       log:  C:\Users\chansen1\Documents\GitHub\NW2022_1Day\Stata Code\riboflavin.txt
+  log type:  text
+ closed on:  26 Jun 2024, 13:51:09
+----------------------------------------------------------------------------------------------------------

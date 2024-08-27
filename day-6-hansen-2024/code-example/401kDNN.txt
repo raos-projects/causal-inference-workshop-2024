@@ -1,0 +1,691 @@
+----------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  C:\Users\chansen1\Documents\GitHub\NW2022_1Day\Stata Code\401kDNN.txt
+  log type:  text
+ opened on:  26 Jun 2024, 11:23:01
+
+. 
+. clear all
+
+.  
+. use "..\Data\sipp1991.dta", clear /* Load data. Assumes I am in my code subfolder */
+
+. 
+. * Normalize inc,age,fsize,educ 
+. * Seems to matter for NNs
+. replace age = age/64
+variable age was byte now float
+(9,915 real changes made)
+
+. replace inc = inc/250000
+(9,912 real changes made)
+
+. replace fsize = fsize/13
+variable fsize was byte now float
+(9,915 real changes made)
+
+. replace educ = educ/18
+variable educ was byte now float
+(9,915 real changes made)
+
+. 
+. *** Set seed for reproducibility
+. set seed 71423
+
+. 
+. *** Split data into a training (~80%) and test (~20%) set
+. gen trdata = runiform()
+
+. replace trdata = trdata < .8
+(9,915 real changes made)
+
+. 
+. * Sample sizes
+. count if trdata
+  7,854
+
+. count if !trdata
+  2,061
+
+. 
+. ****************************************************************************
+. *** Fit deep neural network models. Going to start in python
+. 
+. python:
+----------------------------------------------- python (type end to exit) --------------------------------
+>>> 
+>>> from sfi import Data
+>>> import numpy as np
+>>> import matplotlib.pyplot as plt
+>>> 
+>>> # Use the sfi Data class to pull data from Stata variables into Python
+... X = np.array(Data.get("e401 age inc educ fsize marr twoearn db pira hown"))
+>>> y = np.array(Data.get("net_tfa"))
+>>> T = np.array(Data.get("trdata"))
+>>> 
+>>> # Variable names
+... Xcols = ["e401", "age", "inc", "educ", "fsize", "marr", "twoearn", "db", "pira", "hown"]
+>>> ycols = ["net_tfa"]
+>>> p = X.shape[1]
+>>> 
+>>> # Get training and test data
+... Xtrain = X[T == 1 , ]
+>>> ytrain = y[T == 1]
+>>> Xtest = X[T == 0 , ]
+>>> ytest = y[T == 0]
+>>> 
+>>> # Get constant fit for comparison
+... ymean = np.mean(ytrain)
+>>> oostss = np.mean(np.square(ytest - ymean))
+>>> 
+>>> # Neural Net setup
+... from tensorflow.keras import Sequential
+>>> from tensorflow.keras.layers import Dense
+>>> from tensorflow.keras.layers import Dropout
+>>> from tensorflow.keras.callbacks import EarlyStopping
+>>> from tensorflow.keras import regularizers
+>>> from tensorflow.keras.utils import set_random_seed
+>>> 
+>>> set_random_seed(724)
+>>> 
+>>> # Model A
+... # Input, 4 hidden layers each with 50 neurons, output
+>>> modelA = Sequential()
+>>> modelA.add(Dense(50, input_shape=(p,), activation = 'relu')) 
+>>> modelA.add(Dense(50, activation = 'relu'))
+>>> modelA.add(Dense(50, activation = 'relu'))
+>>> modelA.add(Dense(50, activation = 'relu'))
+>>> modelA.add(Dense(1))
+>>> 
+>>> # See that we set the model up correctly
+... modelA.summary()
+Model: "sequential"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ dense (Dense)               (None, 50)                550       
+                                                                 
+ dense_1 (Dense)             (None, 50)                2550      
+                                                                 
+ dense_2 (Dense)             (None, 50)                2550      
+                                                                 
+ dense_3 (Dense)             (None, 50)                2550      
+                                                                 
+ dense_4 (Dense)             (None, 1)                 51        
+                                                                 
+=================================================================
+Total params: 8251 (32.23 KB)
+Trainable params: 8251 (32.23 KB)
+Non-trainable params: 0 (0.00 Byte)
+_________________________________________________________________
+>>> 
+>>> # Set some fitting options
+... modelA.compile(loss='mse', optimizer='rmsprop')
+>>> 
+>>> # Fit the model, verbose = 0 turns off the display of each iteration
+... modelAfit = modelA.fit(Xtrain, ytrain, batch_size = 200, epochs = 200, validation_split = .2, verbose 
+> = 0)
+>>> 
+>>> # Get validation sample predictions
+... yhatA = modelA.predict(Xtest).flatten()
+
+ 1/65 [..............................] - ETA: 9s
+36/65 [===============>..............] - ETA: 0s
+65/65 [==============================] - 0s 1ms/step
+>>> # .flatten() removes dimensions so it's compatible with ytest
+... # Could also just use modelA.evaluate(Xtest, ytest) to compute mse
+... validMSEA = np.mean(np.square(ytest-yhatA))
+>>> validRMSEA = np.sqrt(validMSEA)
+>>> validR2A = 1 - validMSEA/oostss
+>>> 
+>>> 'A: Validation RMSE = {:.0F}'.format(validRMSEA)
+'A: Validation RMSE = 64776'
+>>> 'A: Validation Rsq = {:.3F}'.format(validR2A)
+'A: Validation Rsq = 0.220'
+>>> 
+>>> # Plot training and validation loss
+... iter = range(1,201)
+>>> figA, ax = plt.subplots()
+>>> ax.plot(iter, np.sqrt(modelAfit.history['loss']))
+[<matplotlib.lines.Line2D object at 0x000000002623AB50>]
+>>> ax.plot(iter, np.sqrt(modelAfit.history['val_loss']))
+[<matplotlib.lines.Line2D object at 0x0000000026312950>]
+>>> ax.set_title('DNN Input/50/50/50/50/Output')
+Text(0.5, 1.0, 'DNN Input/50/50/50/50/Output')
+>>> ax.set_ylabel('RMSE')
+Text(0, 0.5, 'RMSE')
+>>> ax.set_xlabel('epoch')
+Text(0.5, 0, 'epoch')
+>>> ax.legend(['train', 'test'], loc='upper left')
+<matplotlib.legend.Legend object at 0x000000002832C490>
+>>> figA.savefig('..\\Slides\\figures\\DNNA_iterations.pdf')
+>>> 
+>>> # Model B
+... # Input, 4 hidden layers each with 50 neurons and .5 dropout, output
+... modelB = Sequential()
+>>> modelB.add(Dense(50, input_shape=(p,), activation = 'relu')) 
+>>> modelB.add(Dropout(.5))
+>>> modelB.add(Dense(50, activation = 'relu'))
+>>> modelB.add(Dropout(.5))
+>>> modelB.add(Dense(50, activation = 'relu'))
+>>> modelB.add(Dropout(.5))
+>>> modelB.add(Dense(50, activation = 'relu'))
+>>> modelB.add(Dropout(.5))
+>>> modelB.add(Dense(1))
+>>> 
+>>> # See that we set the model up correctly
+... modelB.summary()
+Model: "sequential_1"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ dense_5 (Dense)             (None, 50)                550       
+                                                                 
+ dropout (Dropout)           (None, 50)                0         
+                                                                 
+ dense_6 (Dense)             (None, 50)                2550      
+                                                                 
+ dropout_1 (Dropout)         (None, 50)                0         
+                                                                 
+ dense_7 (Dense)             (None, 50)                2550      
+                                                                 
+ dropout_2 (Dropout)         (None, 50)                0         
+                                                                 
+ dense_8 (Dense)             (None, 50)                2550      
+                                                                 
+ dropout_3 (Dropout)         (None, 50)                0         
+                                                                 
+ dense_9 (Dense)             (None, 1)                 51        
+                                                                 
+=================================================================
+Total params: 8251 (32.23 KB)
+Trainable params: 8251 (32.23 KB)
+Non-trainable params: 0 (0.00 Byte)
+_________________________________________________________________
+>>> 
+>>> # Set some fitting options
+... modelB.compile(loss='mse', optimizer='rmsprop')
+>>> 
+>>> # Fit the model, verbose = 0 turns off the display of each iteration
+... modelBfit = modelB.fit(Xtrain, ytrain, batch_size = 200, epochs = 200, validation_split = .2, verbose 
+> = 0)
+>>> 
+>>> # Get validation sample predictions
+... yhatB = modelB.predict(Xtest).flatten()
+
+ 1/65 [..............................] - ETA: 6s
+51/65 [======================>.......] - ETA: 0s
+65/65 [==============================] - 0s 1ms/step
+>>> validMSEB = np.mean(np.square(ytest-yhatB))
+>>> validRMSEB = np.sqrt(validMSEB)
+>>> validR2B = 1 - validMSEB/oostss
+>>> 
+>>> 'B: Validation RMSE = {:.0F}'.format(validRMSEB)
+'B: Validation RMSE = 65113'
+>>> 'B: Validation Rsq = {:.3F}'.format(validR2B)
+'B: Validation Rsq = 0.212'
+>>> 
+>>> # Plot training and validation loss
+... iter = range(1,201)
+>>> figB, ax = plt.subplots()
+>>> ax.plot(iter, np.sqrt(modelBfit.history['loss']))
+[<matplotlib.lines.Line2D object at 0x0000000026070590>]
+>>> ax.plot(iter, np.sqrt(modelBfit.history['val_loss']))
+[<matplotlib.lines.Line2D object at 0x000000002C51AB10>]
+>>> ax.set_title('DNN Input/50/50/50/50/Output, .5 Dropout')
+Text(0.5, 1.0, 'DNN Input/50/50/50/50/Output, .5 Dropout')
+>>> ax.set_ylabel('RMSE')
+Text(0, 0.5, 'RMSE')
+>>> ax.set_xlabel('epoch')
+Text(0.5, 0, 'epoch')
+>>> ax.legend(['train', 'test'], loc='upper left')
+<matplotlib.legend.Legend object at 0x0000000028F2F790>
+>>> figB.savefig('..\\Slides\\figures\\DNNB_iterations.pdf')
+>>> 
+>>> # Model C
+... # Input, 4 hidden layers each with 50 neurons and l2 regularization, output
+... modelC = Sequential()
+>>> modelC.add(Dense(50, input_shape=(p,), activation = 'relu', kernel_regularizer=regularizers.L2(0.01)))
+>  
+>>> modelC.add(Dense(50, activation = 'relu', kernel_regularizer=regularizers.L1(0.01)))
+>>> modelC.add(Dense(50, activation = 'relu', kernel_regularizer=regularizers.L1(0.01)))
+>>> modelC.add(Dense(50, activation = 'relu', kernel_regularizer=regularizers.L1(0.01)))
+>>> modelC.add(Dense(1))
+>>> 
+>>> # See that we set the model up correctly
+... modelC.summary()
+Model: "sequential_2"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ dense_10 (Dense)            (None, 50)                550       
+                                                                 
+ dense_11 (Dense)            (None, 50)                2550      
+                                                                 
+ dense_12 (Dense)            (None, 50)                2550      
+                                                                 
+ dense_13 (Dense)            (None, 50)                2550      
+                                                                 
+ dense_14 (Dense)            (None, 1)                 51        
+                                                                 
+=================================================================
+Total params: 8251 (32.23 KB)
+Trainable params: 8251 (32.23 KB)
+Non-trainable params: 0 (0.00 Byte)
+_________________________________________________________________
+>>> 
+>>> # Set some fitting options
+... modelC.compile(loss='mse', optimizer='rmsprop')
+>>> 
+>>> # Fit the model, verbose = 0 turns off the display of each iteration
+... modelCfit = modelC.fit(Xtrain, ytrain, batch_size = 200, epochs = 200, validation_split = .2, verbose 
+> = 0)
+>>> 
+>>> # Get validation sample predictions
+... yhatC = modelC.predict(Xtest).flatten()
+
+ 1/65 [..............................] - ETA: 4s
+54/65 [=======================>......] - ETA: 0s
+65/65 [==============================] - 0s 992us/step
+>>> validMSEC = np.mean(np.square(ytest-yhatC))
+>>> validRMSEC = np.sqrt(validMSEC)
+>>> validR2C = 1 - validMSEC/oostss
+>>> 
+>>> 'C: Validation RMSE = {:.0F}'.format(validRMSEC)
+'C: Validation RMSE = 65180'
+>>> 'C: Validation Rsq = {:.3F}'.format(validR2C)
+'C: Validation Rsq = 0.211'
+>>> 
+>>> # Plot training and validation loss
+... iter = range(1,201)
+>>> figC, ax = plt.subplots()
+>>> ax.plot(iter, np.sqrt(modelCfit.history['loss']))
+[<matplotlib.lines.Line2D object at 0x0000000031B7F090>]
+>>> ax.plot(iter, np.sqrt(modelCfit.history['val_loss']))
+[<matplotlib.lines.Line2D object at 0x0000000031BB2E10>]
+>>> ax.set_title('DNN Input/50/50/50/50/Output, l2 penalty')
+Text(0.5, 1.0, 'DNN Input/50/50/50/50/Output, l2 penalty')
+>>> ax.set_ylabel('RMSE')
+Text(0, 0.5, 'RMSE')
+>>> ax.set_xlabel('epoch')
+Text(0.5, 0, 'epoch')
+>>> ax.legend(['train', 'test'], loc='upper left')
+<matplotlib.legend.Legend object at 0x00000000291F7790>
+>>> figC.savefig('..\\Slides\\figures\\DNNC_iterations.pdf')
+>>> 
+>>> # Model D
+... # Input, 4 hidden layers each with 50 neurons and early stopping, output
+... modelD = Sequential()
+>>> modelD.add(Dense(50, input_shape=(p,), activation = 'relu') )
+>>> modelD.add(Dense(50, activation = 'relu'))
+>>> modelD.add(Dense(50, activation = 'relu'))
+>>> modelD.add(Dense(50, activation = 'relu'))
+>>> modelD.add(Dense(1))
+>>> 
+>>> # See that we set the model up correctly
+... modelD.summary()
+Model: "sequential_3"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ dense_15 (Dense)            (None, 50)                550       
+                                                                 
+ dense_16 (Dense)            (None, 50)                2550      
+                                                                 
+ dense_17 (Dense)            (None, 50)                2550      
+                                                                 
+ dense_18 (Dense)            (None, 50)                2550      
+                                                                 
+ dense_19 (Dense)            (None, 1)                 51        
+                                                                 
+=================================================================
+Total params: 8251 (32.23 KB)
+Trainable params: 8251 (32.23 KB)
+Non-trainable params: 0 (0.00 Byte)
+_________________________________________________________________
+>>> 
+>>> # Set some fitting options
+... modelD.compile(loss='mse', optimizer='rmsprop')
+>>> 
+>>> # Set early stopping rule
+... es = EarlyStopping(monitor='val_loss', mode='min', patience = 200, restore_best_weights = True)
+>>> 
+>>> # Fit the model, verbose = 0 turns off the display of each iteration
+... modelDfit = modelD.fit(Xtrain, ytrain, batch_size = 200, epochs = 2000, validation_split = .2, verbose
+>  = 0, callbacks = es)
+>>> 
+>>> # Get validation sample predictions
+... yhatD = modelD.predict(Xtest).flatten()
+
+ 1/65 [..............................] - ETA: 5s
+63/65 [============================>.] - ETA: 0s
+65/65 [==============================] - 0s 991us/step
+>>> validMSED = np.mean(np.square(ytest-yhatD))
+>>> validRMSED = np.sqrt(validMSED)
+>>> validR2D = 1 - validMSED/oostss
+>>> 
+>>> 'D: Validation RMSE = {:.0F}'.format(validRMSED)
+'D: Validation RMSE = 64700'
+>>> 'D: Validation Rsq = {:.3F}'.format(validR2D)
+'D: Validation Rsq = 0.222'
+>>> 
+>>> n_iter = len(modelDfit.history['val_loss'])
+>>> best_iter = np.argmin(modelDfit.history['val_loss'])
+>>> 
+>>> 'D: Early stopping best: {}'.format(best_iter)
+'D: Early stopping best: 166'
+>>> 
+>>> # Plot training and validation loss
+... iter = range(1,n_iter+1)
+>>> figD, ax = plt.subplots()
+>>> ax.plot(iter, np.sqrt(modelDfit.history['loss']))
+[<matplotlib.lines.Line2D object at 0x0000000031DCE910>]
+>>> ax.plot(iter, np.sqrt(modelDfit.history['val_loss']))
+[<matplotlib.lines.Line2D object at 0x0000000031EB15D0>]
+>>> ax.axvline(x = best_iter, color = 'b')
+<matplotlib.lines.Line2D object at 0x0000000031E0A910>
+>>> ax.set_title('DNN Input/50/50/50/50/Output, l2 penalty')
+Text(0.5, 1.0, 'DNN Input/50/50/50/50/Output, l2 penalty')
+>>> ax.set_ylabel('RMSE')
+Text(0, 0.5, 'RMSE')
+>>> ax.set_xlabel('epoch')
+Text(0.5, 0, 'epoch')
+>>> ax.legend(['train', 'test'], loc='upper left')
+<matplotlib.legend.Legend object at 0x000000002B967790>
+>>> figD.savefig('..\\Slides\\figures\\DNND_iterations.pdf')
+>>> 
+>>> end
+----------------------------------------------------------------------------------------------------------
+
+. 
+. 
+. ***************************************************************************
+. *** Use pystacked to look at performance under several additional choices
+. *** pystacked has many less options than tensorflow, but is easy to play with here
+. 
+. qui pystacked net_tfa e401 age inc educ fsize marr twoearn db pira hown || ///
+>         m(nnet) opt(hidden_layer_sizes(20 20) alpha(0) random_state(720)) || ///
+>         if trdata , type(reg) 
+
+. 
+. qui pystacked , table holdout
+
+. display "20 20"
+20 20
+
+. matrix list r(m)
+
+r(m)[2,3]
+           RMSPE_in   RMSPE_cv  RMSPE_out
+STACKING  55642.131          .  68121.603
+    nnet  55642.131          .  68121.603
+
+. qui predict yhat1 , basexb      
+
+.         
+. qui pystacked net_tfa e401 age inc educ fsize marr twoearn db pira hown || ///
+>         m(nnet) opt(hidden_layer_sizes(20 20) alpha(.1) random_state(720)) || ///
+>         if trdata , type(reg) 
+
+. 
+. qui pystacked , table holdout
+
+. display "20 20 a(.1)"
+20 20 a(.1)
+
+. matrix list r(m)
+
+r(m)[2,3]
+           RMSPE_in   RMSPE_cv  RMSPE_out
+STACKING  55569.068          .  68048.521
+    nnet  55569.068          .  68048.521
+
+. qui predict yhat2 , basexb              
+
+.         
+. qui pystacked net_tfa e401 age inc educ fsize marr twoearn db pira hown || ///
+>         m(nnet) opt(hidden_layer_sizes(20 20) alpha(1) random_state(720)) || ///
+>         if trdata , type(reg) 
+
+. 
+. qui pystacked , table holdout
+
+. display "20 20 a(1)"
+20 20 a(1)
+
+. matrix list r(m)
+
+r(m)[2,3]
+           RMSPE_in   RMSPE_cv  RMSPE_out
+STACKING  55555.856          .  68034.307
+    nnet  55555.856          .  68034.307
+
+. qui predict yhat3 , basexb      
+
+.         
+. qui pystacked net_tfa e401 age inc educ fsize marr twoearn db pira hown || ///
+>         m(nnet) opt(hidden_layer_sizes(20 20) alpha(0) random_state(720) ///
+>                 validation_fraction(.2) n_iter_no_change(10) max_iter(1000)) || ///
+>         if trdata , type(reg) 
+
+. 
+. qui pystacked , table holdout
+
+. display "20 20 es"
+20 20 es
+
+. matrix list r(m)
+
+r(m)[2,3]
+           RMSPE_in   RMSPE_cv  RMSPE_out
+STACKING  51188.058          .  64411.307
+    nnet  51188.058          .  64411.307
+
+. qui predict yhat4 , basexb      
+
+. 
+. qui pystacked net_tfa e401 age inc educ fsize marr twoearn db pira hown || ///
+>         m(nnet) opt(hidden_layer_sizes(50 10 50) alpha(0) random_state(720)) || ///
+>         if trdata , type(reg) 
+
+. 
+. qui pystacked , table holdout
+
+. display "50 10 50"
+50 10 50
+
+. matrix list r(m)
+
+r(m)[2,3]
+           RMSPE_in   RMSPE_cv  RMSPE_out
+STACKING  50938.284          .  64268.439
+    nnet  50938.284          .  64268.439
+
+. qui predict yhat5 , basexb      
+
+. 
+. qui pystacked net_tfa e401 age inc educ fsize marr twoearn db pira hown || ///
+>         m(nnet) opt(hidden_layer_sizes(50 10 50) alpha(.1) random_state(720)) || ///
+>         if trdata , type(reg) 
+
+. 
+. qui pystacked , table holdout
+
+. display "50 10 50 a(.1)"
+50 10 50 a(.1)
+
+. matrix list r(m)
+
+r(m)[2,3]
+           RMSPE_in   RMSPE_cv  RMSPE_out
+STACKING  50958.529          .  64257.571
+    nnet  50958.529          .  64257.571
+
+. qui predict yhat6 , basexb      
+
+. 
+. qui pystacked net_tfa e401 age inc educ fsize marr twoearn db pira hown || ///
+>         m(nnet) opt(hidden_layer_sizes(50 10 50) alpha(1) random_state(720)) || ///
+>         if trdata , type(reg) 
+
+. 
+. qui pystacked , table holdout
+
+. display "50 10 50 a(1)"
+50 10 50 a(1)
+
+. matrix list r(m)
+
+r(m)[2,3]
+           RMSPE_in   RMSPE_cv  RMSPE_out
+STACKING  50956.586          .  64256.493
+    nnet  50956.586          .  64256.493
+
+. qui predict yhat7 , basexb      
+
+. 
+. qui pystacked net_tfa e401 age inc educ fsize marr twoearn db pira hown || ///
+>         m(nnet) opt(hidden_layer_sizes(50 10 50) alpha(0) random_state(720) ///
+>                 validation_fraction(.2) n_iter_no_change(10) max_iter(1000)) || ///
+>         if trdata , type(reg) 
+
+. 
+. qui pystacked , table holdout
+
+. display "50 10 50 es"
+50 10 50 es
+
+. matrix list r(m)
+
+r(m)[2,3]
+           RMSPE_in   RMSPE_cv  RMSPE_out
+STACKING  46848.782          .  65552.658
+    nnet  46848.782          .  65552.658
+
+. qui predict yhat8 , basexb      
+
+. 
+. qui pystacked net_tfa e401 age inc educ fsize marr twoearn db pira hown || ///
+>         m(nnet) opt(hidden_layer_sizes(20) alpha(0) random_state(720)) || ///
+>         if trdata , type(reg) 
+
+. 
+. qui pystacked , table holdout
+
+. display "20"
+20
+
+. matrix list r(m)
+
+r(m)[2,3]
+           RMSPE_in   RMSPE_cv  RMSPE_out
+STACKING  61517.493          .  74145.834
+    nnet  61517.493          .  74145.834
+
+. qui predict yhat9 , basexb      
+
+. 
+. qui pystacked net_tfa e401 age inc educ fsize marr twoearn db pira hown || ///
+>         m(nnet) opt(hidden_layer_sizes(20) alpha(.1) random_state(720)) || ///
+>         if trdata , type(reg) 
+
+. 
+. qui pystacked , table holdout
+
+. display "20 a(.1)"
+20 a(.1)
+
+. matrix list r(m)
+
+r(m)[2,3]
+           RMSPE_in   RMSPE_cv  RMSPE_out
+STACKING  61511.416          .   74140.27
+    nnet  61511.416          .   74140.27
+
+. qui predict yhat10 , basexb     
+
+. 
+. qui pystacked net_tfa e401 age inc educ fsize marr twoearn db pira hown || ///
+>         m(nnet) opt(hidden_layer_sizes(20) alpha(1) random_state(720)) || ///
+>         if trdata , type(reg) 
+
+. 
+. qui pystacked , table holdout
+
+. display "20 a(1)"
+20 a(1)
+
+. matrix list r(m)
+
+r(m)[2,3]
+           RMSPE_in   RMSPE_cv  RMSPE_out
+STACKING  61511.395          .  74140.252
+    nnet  61511.395          .  74140.252
+
+. qui predict yhat11 , basexb     
+
+. 
+. qui pystacked net_tfa e401 age inc educ fsize marr twoearn db pira hown || ///
+>         m(nnet) opt(hidden_layer_sizes(20) alpha(0) random_state(720) ///
+>                 validation_fraction(.2) n_iter_no_change(10) max_iter(1000)) || ///             
+>         if trdata , type(reg) 
+
+. 
+. qui pystacked , table holdout
+
+. display "20 es"
+20 es
+
+. matrix list r(m)
+
+r(m)[2,3]
+           RMSPE_in   RMSPE_cv  RMSPE_out
+STACKING  57128.806          .  69727.971
+    nnet  57128.806          .  69727.971
+
+. qui predict yhat12 , basexb     
+
+.         
+. *** Fit constant model for reference later
+. qui reg net_tfa if trdata == 1
+
+. predict yhat_c 
+(option xb assumed; fitted values)
+
+. gen r_mean2 = (net_tfa - yhat_c)^2
+
+. qui sum r_mean2 if trdata == 0
+
+. local tssOut = r(mean)
+
+. 
+. * Tried 12 learners
+. forvalues i = 1/12 {
+  2.         qui gen r`i' = (net_tfa - yhat`i'1)^2
+  3.         qui sum r`i' if trdata == 0
+  4.         local essOut`i' = r(mean)
+  5.         local r2Out`i' = 1-(`essOut`i''/`tssOut')
+  6.         display "R^2 (in/CV/out) " `i' " = " `r2Out`i'' 
+  7. }
+R^2 (in/CV/out) 1 = .13778804
+R^2 (in/CV/out) 2 = .13963704
+R^2 (in/CV/out) 3 = .13999642
+R^2 (in/CV/out) 4 = .22915236
+R^2 (in/CV/out) 5 = .23256813
+R^2 (in/CV/out) 6 = .23282765
+R^2 (in/CV/out) 7 = .2328534
+R^2 (in/CV/out) 8 = .2015919
+R^2 (in/CV/out) 9 = -.02145171
+R^2 (in/CV/out) 10 = -.02129839
+R^2 (in/CV/out) 11 = -.02129791
+R^2 (in/CV/out) 12 = .09664514
+
+. 
+. 
+. 
+. log close
+      name:  <unnamed>
+       log:  C:\Users\chansen1\Documents\GitHub\NW2022_1Day\Stata Code\401kDNN.txt
+  log type:  text
+ closed on:  26 Jun 2024, 11:27:56
+----------------------------------------------------------------------------------------------------------

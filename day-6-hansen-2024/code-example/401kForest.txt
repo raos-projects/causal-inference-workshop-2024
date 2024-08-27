@@ -1,0 +1,431 @@
+----------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  C:\Users\chansen1\Documents\GitHub\NW2022_1Day\Stata Code\401kForest.txt
+  log type:  text
+ opened on:  25 Jun 2024, 18:19:38
+
+. 
+. clear all
+
+.  
+. use "..\Data\sipp1991.dta", clear /* Load data. Assumes I am in my code subfolder */
+
+. 
+. *** Set seed for reproducibility
+. set seed 71423
+
+. 
+. *** Split data into a training (~80%) and test (~20%) set
+. gen trdata = runiform()
+
+. replace trdata = trdata < .8
+(9,915 real changes made)
+
+. 
+. * Sample sizes
+. count if trdata
+  7,854
+
+. count if !trdata
+  2,061
+
+. 
+. *************************************************************************
+. * Look at out of bag error estimation. Follows example in "The Random Forest Algorithm for Statistical L
+> earning" Schonlau and Zou
+. * This block of code is slow
+. gen oobError = .
+(9,915 missing values generated)
+
+. gen iterNum = .
+(9,915 missing values generated)
+
+. 
+. local j = 0
+
+. forvalues i = 1(20)2001 {
+  2.         local j = `j' + 1
+  3.         display "Trees = " `i'
+  4.         rforest net_tfa e401 age inc educ fsize marr twoearn db pira hown if trdata, ///
+>                 type(reg) iter(`i') seed(720)
+  5.         * rforest defaults to using \sqrt{p} regressors at each step
+.         qui replace oobError = `e(OOB_Error)' in `j'
+  6.         qui replace iterNum = `i' in `j'
+  7. }
+Trees = 1
+
+Trees = 21
+
+Trees = 41
+
+Trees = 61
+
+Trees = 81
+
+Trees = 101
+
+Trees = 121
+
+Trees = 141
+
+Trees = 161
+
+Trees = 181
+
+Trees = 201
+
+Trees = 221
+
+Trees = 241
+
+Trees = 261
+
+Trees = 281
+
+Trees = 301
+
+Trees = 321
+
+Trees = 341
+
+Trees = 361
+
+Trees = 381
+
+Trees = 401
+
+Trees = 421
+
+Trees = 441
+
+Trees = 461
+
+Trees = 481
+
+Trees = 501
+
+Trees = 521
+
+Trees = 541
+
+Trees = 561
+
+Trees = 581
+
+Trees = 601
+
+Trees = 621
+
+Trees = 641
+
+Trees = 661
+
+Trees = 681
+
+Trees = 701
+
+Trees = 721
+
+Trees = 741
+
+Trees = 761
+
+Trees = 781
+
+Trees = 801
+
+Trees = 821
+
+Trees = 841
+
+Trees = 861
+
+Trees = 881
+
+Trees = 901
+
+Trees = 921
+
+Trees = 941
+
+Trees = 961
+
+Trees = 981
+
+Trees = 1001
+
+Trees = 1021
+
+Trees = 1041
+
+Trees = 1061
+
+Trees = 1081
+
+Trees = 1101
+
+Trees = 1121
+
+Trees = 1141
+
+Trees = 1161
+
+Trees = 1181
+
+Trees = 1201
+
+Trees = 1221
+
+Trees = 1241
+
+Trees = 1261
+
+Trees = 1281
+
+Trees = 1301
+
+Trees = 1321
+
+Trees = 1341
+
+Trees = 1361
+
+Trees = 1381
+
+Trees = 1401
+
+Trees = 1421
+
+Trees = 1441
+
+Trees = 1461
+
+Trees = 1481
+
+Trees = 1501
+
+Trees = 1521
+
+Trees = 1541
+
+Trees = 1561
+
+Trees = 1581
+
+Trees = 1601
+
+Trees = 1621
+
+Trees = 1641
+
+Trees = 1661
+
+Trees = 1681
+
+Trees = 1701
+
+Trees = 1721
+
+Trees = 1741
+
+Trees = 1761
+
+Trees = 1781
+
+Trees = 1801
+
+Trees = 1821
+
+Trees = 1841
+
+Trees = 1861
+
+Trees = 1881
+
+Trees = 1901
+
+Trees = 1921
+
+Trees = 1941
+
+Trees = 1961
+
+Trees = 1981
+
+Trees = 2001
+
+
+. twoway (line oobError iterNum , lcolor(blue)) , legend(off)
+
+. graph export ..\Slides\figures\Stata_OOB.png , replace
+file ..\Slides\figures\Stata_OOB.png saved as PNG format
+
+. graph close
+
+. 
+. display "RMSE Default = " `e(OOB_Error)'
+RMSE Default = 18314.478
+
+. 
+. ******************************************************************************
+. * Look at OOB and validation error for a few different tuning choices
+. 
+. * Model we just estimated (2001 trees), Stata default tuning
+. predict yhat1
+
+. gen r2_1 = (net_tfa - yhat1)^2
+
+. 
+. * Things look stable after ~750 trees, just use 1000 from here on
+. 
+. * 1) Use all variables
+. rforest net_tfa e401 age inc educ fsize marr twoearn db pira hown if trdata, ///
+>                 type(reg) iter(1000) seed(720) numvars(10)
+
+
+. predict yhatA
+
+. gen r2_A = (net_tfa - yhatA)^2
+
+. 
+. display "RMSE All = " `e(OOB_Error)'
+RMSE All = 19225.595
+
+. 
+. * 2) min leaf size = 20
+. rforest net_tfa e401 age inc educ fsize marr twoearn db pira hown if trdata, ///
+>                 type(reg) iter(1000) seed(720) lsize(20)
+
+
+. predict yhat20
+
+. gen r2_20 = (net_tfa - yhat20)^2
+
+. 
+. display "RMSE 20 = " `e(OOB_Error)'
+RMSE 20 = 17902.209
+
+. 
+. * 3) min leaf size = 40
+. rforest net_tfa e401 age inc educ fsize marr twoearn db pira hown if trdata, ///
+>                 type(reg) iter(1000) seed(720) lsize(40)
+
+
+. predict yhat40
+
+. gen r2_40 = (net_tfa - yhat40)^2
+
+. 
+. display "RMSE 40 = " `e(OOB_Error)'
+RMSE 40 = 17902.595
+
+. 
+. * 4) min leaf size = 80
+. rforest net_tfa e401 age inc educ fsize marr twoearn db pira hown if trdata, ///
+>                 type(reg) iter(1000) seed(720) lsize(80)
+
+
+. predict yhat80
+
+. gen r2_80 = (net_tfa - yhat80)^2
+
+. 
+. display "RMSE 80 = " `e(OOB_Error)'
+RMSE 80 = 18056.484
+
+.                         
+. * 5) min leaf size = 160
+. rforest net_tfa e401 age inc educ fsize marr twoearn db pira hown if trdata, ///
+>                 type(reg) iter(1000) seed(720) lsize(160)
+
+
+. predict yhat160
+
+. gen r2_160 = (net_tfa - yhat160)^2
+
+. 
+. display "RMSE 160 = " `e(OOB_Error)'                    
+RMSE 160 = 18392.432
+
+. 
+. * Constant model
+. qui reg net_tfa if trdata
+
+. predict yhat_constant   
+(option xb assumed; fitted values)
+
+. gen r2_constant = (net_tfa - yhat_constant)^2
+
+. 
+. * Get R^2s
+. qui sum r2_constant if !trdata
+
+. local tssOut = r(mean)
+
+. 
+. qui sum r2_1 if !trdata
+
+. local essOut_1 = r(mean)
+
+. local r2Out_1 = 1-(`essOut_1'/`tssOut')
+
+. display "R^2 Default:" `r2Out_1'
+R^2 Default:.21761327
+
+. 
+. qui sum r2_A if !trdata
+
+. local essOut_A = r(mean)
+
+. local r2Out_A = 1-(`essOut_A'/`tssOut')
+
+. display "R^2 All:" `r2Out_A'
+R^2 All:.15907767
+
+. 
+. qui sum r2_20 if !trdata
+
+. local essOut_20 = r(mean)
+
+. local r2Out_20 = 1-(`essOut_20'/`tssOut')
+
+. display "R^2 20:" `r2Out_20'
+R^2 20:.21425374
+
+. 
+. qui sum r2_40 if !trdata
+
+. local essOut_40 = r(mean)
+
+. local r2Out_40 = 1-(`essOut_40'/`tssOut')
+
+. display "R^2 40:" `r2Out_40'
+R^2 40:.21137209
+
+. 
+. qui sum r2_80 if !trdata
+
+. local essOut_80 = r(mean)
+
+. local r2Out_80 = 1-(`essOut_80'/`tssOut')
+
+. display "R^2 80:" `r2Out_80'
+R^2 80:.20606798
+
+. 
+. qui sum r2_160 if !trdata
+
+. local essOut_160 = r(mean)
+
+. local r2Out_160 = 1-(`essOut_160'/`tssOut')
+
+. display "R^2 160:" `r2Out_160'
+R^2 160:.19468523
+
+. 
+. log close
+      name:  <unnamed>
+       log:  C:\Users\chansen1\Documents\GitHub\NW2022_1Day\Stata Code\401kForest.txt
+  log type:  text
+ closed on:  25 Jun 2024, 18:35:48
+----------------------------------------------------------------------------------------------------------

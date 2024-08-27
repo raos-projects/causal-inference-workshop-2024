@@ -1,0 +1,464 @@
+----------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  C:\Users\chansen1\Documents\GitHub\NW2022_1Day\Stata Code\401kValidationIllustration.txt
+  log type:  text
+ opened on:  25 Jun 2024, 16:26:41
+
+. clear all
+
+.  
+. use "..\Data\sipp1991.dta", clear /* Load data. Assumes I am in my code subfolder */
+
+. 
+. *** Set seed for reproducibility
+. set seed 71423
+
+. 
+. *** Split data into a training (~ 80%) and test (~ 20%) set
+. gen tr = runiform()
+
+. replace tr = tr < .8
+(9,915 real changes made)
+
+. 
+. * Sample sizes
+. count if tr
+  7,854
+
+. count if !tr
+  2,061
+
+. 
+. *****************************************************************************
+. /* Basic models in training data */
+. 
+. *** Scatter plot
+. twoway (scatter net_tfa inc) if tr
+
+. graph export ..\Slides\figures\Stata_ScPlNetTFA.png , replace
+file ..\Slides\figures\Stata_ScPlNetTFA.png saved as PNG format
+
+. graph close
+
+. 
+. *** Fit constant model for reference later
+. qui reg net_tfa if tr
+
+. predict yhat_c 
+(option xb assumed; fitted values)
+
+. gen r_mean = net_tfa - yhat_c
+
+. gen r_mean2 = r_mean^2
+
+. qui sum r_mean2 if tr
+
+. local tssIn = r(mean)
+
+. qui sum r_mean2 if !tr
+
+. local tssOut = r(mean)
+
+. 
+. *** Linear model and plot
+. reg net_tfa inc if tr
+
+      Source |       SS           df       MS      Number of obs   =     7,854
+-------------+----------------------------------   F(1, 7852)      =   1505.98
+       Model |  4.6528e+12         1  4.6528e+12   Prob > F        =    0.0000
+    Residual |  2.4259e+13     7,852  3.0895e+09   R-squared       =    0.1609
+-------------+----------------------------------   Adj R-squared   =    0.1608
+       Total |  2.8912e+13     7,853  3.6816e+09   Root MSE        =     55584
+
+------------------------------------------------------------------------------
+     net_tfa | Coefficient  Std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         inc |   .9805261   .0252668    38.81   0.000     .9309965    1.030056
+       _cons |  -18768.41   1133.446   -16.56   0.000    -20990.26   -16546.55
+------------------------------------------------------------------------------
+
+. predict yhat_lm
+(option xb assumed; fitted values)
+
+. twoway (scatter net_tfa inc) (lfit net_tfa inc) if tr , legend(off)
+
+. graph export ..\Slides\figures\Stata_LMNetTFA.png , replace
+file ..\Slides\figures\Stata_LMNetTFA.png saved as PNG format
+
+. graph close
+
+. 
+. * RMSEs and out-of-sample R^2
+. * Undoubtedly a better way to do this
+. * Could at least put in a program
+. gen r_lm = net_tfa - yhat_lm
+
+. gen r_lm2 = r_lm^2
+
+. qui sum r_lm2 if tr
+
+. display "LM RMSE = " sqrt(r(mean))
+LM RMSE = 55576.489
+
+. qui sum r_lm2 if !tr
+
+. display "LM RMSE out-of-sample = " sqrt(r(mean))
+LM RMSE out-of-sample = 68705.971
+
+. qui sum r_lm2 if !tr
+
+. local essOut_lm = r(mean)
+
+. local r2Out_lm = 1-(`essOut_lm'/`tssOut')
+
+. display "LM R^2 out-of-sample = " `r2Out_lm' 
+LM R^2 out-of-sample = .12293192
+
+. 
+. *** Kernel regression and plot
+. * Brute force knn regression with uniform kernel and k = 1. Really slow.
+. gen yhat_kern = . 
+(9,915 missing values generated)
+
+. local n = _N
+
+. forvalues i = 1/`n' {
+  2.         capture drop tmpdis tmprank tmpww tmpwwy tmpnum tmpden tmpknn
+  3.         gen tmpdis = abs(inc - inc[`i']) 
+  4.         qui replace tmpdis = 1e10 if !tr
+  5.         egen tmprank = rank(tmpdis) , track
+  6.         gen tmpww = tmprank < 2
+  7.         gen tmpwwy = tmpww*net_tfa
+  8.         egen tmpnum = total(tmpwwy)
+  9.         egen tmpden = total(tmpww)
+ 10.         gen tmpknn = tmpnum/tmpden
+ 11.         qui replace yhat_kern = tmpknn in `i'
+ 12. }
+
+. twoway (scatter net_tfa inc) (line yhat_kern inc , sort lcolor(red)) if tr , legend(off)
+
+. graph export ..\Slides\figures\Stata_KernNetTFA.png , replace
+file ..\Slides\figures\Stata_KernNetTFA.png saved as PNG format
+
+. graph close
+
+. 
+. capture drop tmpdis tmprank tmpww tmpwwy tmpnum tmpden tmpknn
+
+. 
+. * Compute in and out-of-sample R^2. 
+. * Undoubtedly a better way to do this.
+. * Could at least put in a program
+. gen r_knn = net_tfa - yhat_kern 
+
+. gen r_knn2 = r_knn^2
+
+. qui sum r_knn2 if tr
+
+. local essIn_knn = r(mean)
+
+. display "KNN RMSE = " sqrt(r(mean))
+KNN RMSE = 20515.649
+
+. local r2In_knn = 1-(`essIn_knn'/`tssIn')
+
+. display "KNN R^2 = " `r2In_knn' 
+KNN R^2 = .88566307
+
+. qui sum r_knn2 if !tr
+
+. local essOut_knn = r(mean)
+
+. display "KNN RMSE out-of-sample = " sqrt(r(mean))
+KNN RMSE out-of-sample = 83167.341
+
+. local r2Out_knn = 1-(`essOut_knn'/`tssOut')
+
+. display "KNN R^2 out-of-sample = " `r2Out_knn' 
+KNN R^2 out-of-sample = -.28513861
+
+. 
+. *** Cubic polynomial regression
+. gen inc2 = inc^2
+
+. gen inc3 = inc^3
+
+. reg net_tfa inc inc2 inc3 if tr
+
+      Source |       SS           df       MS      Number of obs   =     7,854
+-------------+----------------------------------   F(3, 7850)      =    845.69
+       Model |  7.0618e+12         3  2.3539e+12   Prob > F        =    0.0000
+    Residual |  2.1850e+13     7,850  2.7834e+09   R-squared       =    0.2443
+-------------+----------------------------------   Adj R-squared   =    0.2440
+       Total |  2.8912e+13     7,853  3.6816e+09   Root MSE        =     52758
+
+------------------------------------------------------------------------------
+     net_tfa | Coefficient  Std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         inc |   1.386728   .1244277    11.14   0.000     1.142816    1.630639
+        inc2 |  -.0000192   1.93e-06    -9.94   0.000    -.0000229   -.0000154
+        inc3 |   1.38e-10   8.12e-12    17.03   0.000     1.22e-10    1.54e-10
+       _cons |  -15466.16   2136.086    -7.24   0.000    -19653.46   -11278.86
+------------------------------------------------------------------------------
+
+. predict yhat_poly
+(option xb assumed; fitted values)
+
+. twoway (scatter net_tfa inc) (line yhat_poly inc , sort lcolor(red)) if tr , legend(off)
+
+. graph export ..\Slides\figures\Stata_PolyNetTFA.png , replace
+file ..\Slides\figures\Stata_PolyNetTFA.png saved as PNG format
+
+. graph close
+
+. 
+. * RMSEs and out-of-sample R^2
+. * Undoubtedly a better way to do this
+. * Could at least put in a program
+. gen r_poly = net_tfa - yhat_poly
+
+. gen r_poly2 = r_poly^2
+
+. qui sum r_poly2 if tr
+
+. display "Poly RMSE = " sqrt(r(mean))
+Poly RMSE = 52744.841
+
+. qui sum r_poly2 if !tr
+
+. display "Poly RMSE out-of-sample = " sqrt(r(mean))
+Poly RMSE out-of-sample = 68959.436
+
+. qui sum r_poly2 if !tr
+
+. local essOut_poly = r(mean)
+
+. local r2Out_poly = 1-(`essOut_poly'/`tssOut')
+
+. display "Poly R^2 out-of-sample = " `r2Out_poly' 
+Poly R^2 out-of-sample = .11644878
+
+. 
+. *****************************************************************************
+. /* Brute force cross-validation */
+. 
+. *** Create fold variable for 5 fold CV
+. gen cvrand = runiform()
+
+. egen foldvar = cut(cvrand) if tr , group(5)
+(2,061 missing values generated)
+
+. replace foldvar = foldvar + 1
+(7,854 real changes made)
+
+. 
+. *** Loop over folds and compute our three prediction rules
+. 
+. forvalues k = 1/5 {
+  2.         display "CV fold: " `k'
+  3.         
+.         gen trobs`k' = foldvar != `k' if tr
+  4. 
+.         * Constant 
+.         qui reg net_tfa if trobs`k' == 1
+  5.         qui predict yhat_c`k' 
+  6. 
+.         * Linear Model
+.         qui reg net_tfa inc if trobs`k' == 1
+  7.         qui predict yhat_lm`k'
+  8.         
+.         * Cubic polynomial
+.         qui reg net_tfa inc inc2 inc3 if trobs`k' == 1
+  9.         qui predict yhat_poly`k'
+ 10.         
+.         * KNN with 1 neighbor
+.         gen yhat_kern`k' = . 
+ 11.         local n = _N
+ 12.         forvalues i = 1/`n' {
+ 13.                 capture drop tmpdis tmprank tmpww tmpwwy tmpnum tmpden tmpknn
+ 14.                 gen tmpdis = abs(inc - inc[`i']) 
+ 15.                 qui replace tmpdis = 1e10 if trobs`k' != 1
+ 16.                 egen tmprank = rank(tmpdis) , track
+ 17.                 gen tmpww = tmprank < 2
+ 18.                 gen tmpwwy = tmpww*net_tfa
+ 19.                 egen tmpnum = total(tmpwwy)
+ 20.                 egen tmpden = total(tmpww)
+ 21.                 gen tmpknn = tmpnum/tmpden
+ 22.                 qui replace yhat_kern`k' = tmpknn in `i'
+ 23.         }               
+ 24. }
+CV fold: 1
+(2,061 missing values generated)
+(9,915 missing values generated)
+CV fold: 2
+(2,061 missing values generated)
+(9,915 missing values generated)
+CV fold: 3
+(2,061 missing values generated)
+(9,915 missing values generated)
+CV fold: 4
+(2,061 missing values generated)
+(9,915 missing values generated)
+CV fold: 5
+(2,061 missing values generated)
+(9,915 missing values generated)
+
+. 
+. * Generate squared errors
+. forvalues k = 1/5 {
+  2.         gen r_c2_`k' = (net_tfa - yhat_c`k')^2
+  3.         gen r_lm2_`k' = (net_tfa - yhat_lm`k')^2
+  4.         gen r_knn2_`k' = (net_tfa - yhat_kern`k')^2
+  5.         gen r_poly2_`k' = (net_tfa - yhat_poly`k')^2
+  6. }
+
+. 
+. * Generate RMSEs for each fold
+. forvalues k = 1/5 {
+  2.         qui sum r_lm2_`k' if foldvar == `k'
+  3.         local RMSE_lm_`k' = sqrt(r(mean))
+  4.         qui sum r_knn2_`k' if foldvar == `k'
+  5.         local RMSE_knn_`k' = sqrt(r(mean))
+  6.         qui sum r_poly2_`k' if foldvar == `k'
+  7.         local RMSE_poly_`k' = sqrt(r(mean))
+  8.         display "Fold " `k' " & " `RMSE_lm_`k'' " & " `RMSE_knn_`k'' " & " `RMSE_poly_`k'' " \\"
+  9. }
+Fold 1 & 63041.474 & 76649.959 & 55578.143 \\
+Fold 2 & 44010.977 & 69666.27 & 44121.159 \\
+Fold 3 & 41543.506 & 79414.821 & 41834.739 \\
+Fold 4 & 60649.763 & 81475.432 & 60120.927 \\
+Fold 5 & 64671.224 & 91462.231 & 64827.367 \\
+
+.         
+. * Overall RMSE
+. gen cv_lm = r_lm2_1
+
+. replace cv_lm = r_lm2_2 if foldvar == 2
+(1,571 real changes made)
+
+. replace cv_lm = r_lm2_3 if foldvar == 3
+(1,571 real changes made)
+
+. replace cv_lm = r_lm2_4 if foldvar == 4
+(1,571 real changes made)
+
+. replace cv_lm = r_lm2_5 if foldvar == 5
+(1,571 real changes made)
+
+. replace cv_lm = . if !tr
+(2,061 real changes made, 2,061 to missing)
+
+. qui sum cv_lm
+
+. local cv_lm = sqrt(r(mean))
+
+. 
+. gen cv_knn = r_knn2_1
+
+. replace cv_knn = r_knn2_2 if foldvar == 2
+(1,559 real changes made)
+
+. replace cv_knn = r_knn2_3 if foldvar == 3
+(1,554 real changes made)
+
+. replace cv_knn = r_knn2_4 if foldvar == 4
+(1,544 real changes made)
+
+. replace cv_knn = r_knn2_5 if foldvar == 5
+(1,557 real changes made)
+
+. replace cv_knn = . if !tr
+(2,061 real changes made, 2,061 to missing)
+
+. qui sum cv_knn
+
+. local cv_knn = sqrt(r(mean))
+
+. 
+. gen cv_poly = r_poly2_1 
+
+. replace cv_poly = r_poly2_2 if foldvar == 2
+(1,571 real changes made)
+
+. replace cv_poly = r_poly2_3 if foldvar == 3
+(1,571 real changes made)
+
+. replace cv_poly = r_poly2_4 if foldvar == 4
+(1,571 real changes made)
+
+. replace cv_poly = r_poly2_5 if foldvar == 5
+(1,571 real changes made)
+
+. replace cv_poly = . if !tr
+(2,061 real changes made, 2,061 to missing)
+
+. qui sum cv_poly
+
+. local cv_poly = sqrt(r(mean))
+
+. 
+. display "Overall CV RMSE: & " `cv_lm' " & " `cv_knn' " & " `cv_poly' " \\" 
+Overall CV RMSE: & 55672.723 & 80049.04 & 54042.128 \\
+
+. 
+. * Computed out-of-sample performance on the basis of using all training data in 
+. * the first code block. Here we will use the average of the CV predictions as
+. * the prediction rule and compute out-of-sample R^2
+. 
+. gen cv_pred_c = (yhat_c1 + yhat_c2 + yhat_c3 + yhat_c4 + yhat_c5)/5
+
+. gen cv_pred_lm = (yhat_lm1 + yhat_lm2 + yhat_lm3 + yhat_lm4 + yhat_lm5)/5
+
+. gen cv_pred_knn = (yhat_kern1 + yhat_kern2 + yhat_kern3 + yhat_kern4 + yhat_kern5)/5
+
+. gen cv_pred_poly = (yhat_poly1 + yhat_poly2 + yhat_poly3 + yhat_poly4 + yhat_poly5)/5
+
+. 
+. gen cv_r_c2 = (cv_pred_c - net_tfa)^2
+
+. gen cv_r_lm2 = (cv_pred_lm - net_tfa)^2
+
+. gen cv_r_knn2 = (cv_pred_knn - net_tfa)^2
+
+. gen cv_r_poly2 = (cv_pred_poly - net_tfa)^2
+
+. 
+. * Out-of-sample R^2 relative to using constant fit on full training data
+. qui sum r_mean2 if !tr
+
+. local tssOut = r(mean)
+
+. 
+. qui sum cv_r_c2 if !tr
+
+. local essOut_cv_c = r(mean)
+
+. qui sum cv_r_lm2 if !tr
+
+. local essOut_cv_lm = r(mean)
+
+. qui sum cv_r_knn2 if !tr
+
+. local essOut_cv_knn = r(mean)
+
+. qui sum cv_r_poly2 if !tr
+
+. local essOut_cv_poly = r(mean)
+
+. local r2Out_cvlm = 1-(`essOut_cv_lm'/`tssOut')
+
+. local r2Out_cvknn = 1-(`essOut_cv_knn'/`tssOut')
+
+. local r2Out_cvpoly = 1-(`essOut_cv_poly'/`tssOut')
+
+. display "R^2 out-of-sample = & " `r2Out_cvlm' " & " `r2Out_cvknn' " & " `r2Out_cvpoly' " \\ "
+R^2 out-of-sample = & .12293591 & -.14963165 & .1192601 \\ 
+
+. 
+. 
+. log close
+      name:  <unnamed>
+       log:  C:\Users\chansen1\Documents\GitHub\NW2022_1Day\Stata Code\401kValidationIllustration.txt
+  log type:  text
+ closed on:  25 Jun 2024, 16:34:09
+----------------------------------------------------------------------------------------------------------

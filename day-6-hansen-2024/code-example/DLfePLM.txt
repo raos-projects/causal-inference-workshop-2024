@@ -1,0 +1,1432 @@
+----------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  C:\Users\chansen1\Documents\GitHub\NW2022_1Day\Stata Code\DLfePLM.txt
+  log type:  text
+ opened on:  28 Jun 2024, 10:48:45
+
+. 
+. clear all
+
+.  
+. * Load data. Assumes I am in my code subfolder *
+. import delimited using "..\Data\levitt_ex.dat", clear 
+(encoding automatically selected: ISO-8859-1)
+(17 vars, 1,734 obs)
+
+. 
+. * Drop DC, AK, HI
+. drop if statenum == 2 | statenum == 9 | statenum == 12
+(102 observations deleted)
+
+. 
+. * Restrict to years from Donohue, Levitt paper
+. keep if year > 84 & year < 98
+(1,008 observations deleted)
+
+. 
+. * Scale some variables
+. replace xxincome = xxincome/100
+(624 real changes made)
+
+. replace xxpover = xxpover/100
+(624 real changes made)
+
+. replace xxafdc15 = xxafdc15/10000
+(624 real changes made)
+
+. replace xxbeer = xxbeer/100
+(624 real changes made)
+
+. 
+. *** Get baseline results
+. reghdfe lpc_viol efaviol xx* , absorb(statenum year) cluster(statenum)
+(MWFE estimator converged in 2 iterations)
+
+HDFE Linear regression                            Number of obs   =        624
+Absorbing 2 HDFE groups                           F(   9,     47) =       4.63
+Statistics robust to heteroskedasticity           Prob > F        =     0.0002
+                                                  R-squared       =     0.9777
+                                                  Adj R-squared   =     0.9750
+                                                  Within R-sq.    =     0.2051
+Number of clusters (statenum) =         48        Root MSE        =     0.1004
+
+                              (Std. err. adjusted for 48 clusters in statenum)
+------------------------------------------------------------------------------
+             |               Robust
+    lpc_viol | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+     efaviol |  -.1304476    .043185    -3.02   0.004    -.2173245   -.0435706
+    xxprison |  -.1243666   .0797513    -1.56   0.126    -.2848056    .0360723
+    xxpolice |   .1319724   .1180193     1.12   0.269    -.1054518    .3693965
+     xxunemp |   .0814944   1.232423     0.07   0.948     -2.39782    2.560809
+    xxincome |   72.25554   39.22271     1.84   0.072    -6.650378    151.1615
+     xxpover |  -.0940517   .3305232    -0.28   0.777    -.7589787    .5708753
+    xxafdc15 |   .0756963   .1374124     0.55   0.584    -.2007417    .3521343
+    xxgunlaw |  -.0291693   .0337532    -0.86   0.392     -.097072    .0387335
+      xxbeer |   .5641689   .5822553     0.97   0.338    -.6071777    1.735515
+       _cons |  -5.877037   3.931442    -1.49   0.142    -13.78608    2.032005
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+    statenum |        48          48           0    *|
+        year |        13           0          13     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. reghdfe lpc_prop efaprop xx* , absorb(statenum year) cluster(statenum)
+(MWFE estimator converged in 2 iterations)
+
+HDFE Linear regression                            Number of obs   =        624
+Absorbing 2 HDFE groups                           F(   9,     47) =      13.96
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.9522
+                                                  Adj R-squared   =     0.9463
+                                                  Within R-sq.    =     0.3887
+Number of clusters (statenum) =         48        Root MSE        =     0.0589
+
+                              (Std. err. adjusted for 48 clusters in statenum)
+------------------------------------------------------------------------------
+             |               Robust
+    lpc_prop | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+     efaprop |  -.0910025   .0149287    -6.10   0.000     -.121035   -.0609699
+    xxprison |  -.1975724   .0597986    -3.30   0.002    -.3178717   -.0772731
+    xxpolice |   .0713559   .0911727     0.78   0.438    -.1120599    .2547716
+     xxunemp |   1.685823   .5425611     3.11   0.003      .594331    2.777315
+    xxincome |   36.62628   16.17583     2.26   0.028     4.084706    69.16785
+     xxpover |  -.1076678   .2033276    -0.53   0.599    -.5167101    .3013746
+    xxafdc15 |   .0803823   .0617644     1.30   0.199    -.0438717    .2046363
+    xxgunlaw |   .0350971   .0207402     1.69   0.097    -.0066268     .076821
+      xxbeer |   .6278738   .2779211     2.26   0.029     .0687686    1.186979
+       _cons |  -.0179434   1.619948    -0.01   0.991    -3.276859    3.240972
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+    statenum |        48          48           0    *|
+        year |        13           0          13     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. reghdfe lpc_murd efamurd xx* , absorb(statenum year) cluster(statenum)
+(MWFE estimator converged in 2 iterations)
+
+HDFE Linear regression                            Number of obs   =        624
+Absorbing 2 HDFE groups                           F(   9,     47) =       2.81
+Statistics robust to heteroskedasticity           Prob > F        =     0.0099
+                                                  R-squared       =     0.9152
+                                                  Adj R-squared   =     0.9046
+                                                  Within R-sq.    =     0.0479
+Number of clusters (statenum) =         48        Root MSE        =     0.2025
+
+                              (Std. err. adjusted for 48 clusters in statenum)
+------------------------------------------------------------------------------
+             |               Robust
+    lpc_murd | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+     efamurd |  -.1305443   .0549508    -2.38   0.022    -.2410911   -.0199974
+    xxprison |  -.2642227   .1331874    -1.98   0.053    -.5321612    .0037157
+    xxpolice |   .2336283   .2109367     1.11   0.274    -.1907217    .6579782
+     xxunemp |  -.8849657   1.437598    -0.62   0.541    -3.777041    2.007109
+    xxincome |  -66.08456    61.8477    -1.07   0.291    -190.5061    58.33697
+     xxpover |   .0923249    .569147     0.16   0.872    -1.052651    1.237301
+    xxafdc15 |  -.1711228   .1732799    -0.99   0.328     -.519717    .1774714
+    xxgunlaw |   .0070685   .0475008     0.15   0.882    -.0884907    .1026277
+      xxbeer |   -.300371   .8251663    -0.36   0.717    -1.960391     1.35965
+       _cons |   3.968809   6.169374     0.64   0.523    -8.442371    16.37999
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+    statenum |        48          48           0    *|
+        year |        13           0          13     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. 
+. *** Create expansion
+. xtset statenum year
+
+Panel variable: statenum (strongly balanced)
+ Time variable: year, 85 to 97
+         Delta: 1 unit
+
+. 
+. * Generate initial conditions and state means
+. local V "lpc_viol lpc_prop lpc_murd efaviol efaprop efamurd xxprison xxpolice xxunemp xxincome xxpover x
+> xafdc15 xxgunlaw xxbeer"
+
+. foreach v of varlist `V' {
+  2.         bysort statenum (year): gen `v'0 = `v'[1]
+  3.         by statenum: egen `v'bar = mean(`v')
+  4. }
+
+. 
+. gen trend1 = (year-85)/12
+
+. gen trend2 = trend1^2
+
+. gen trend3 = trend1^3
+
+. 
+. foreach v of varlist `V' {
+  2.         gen tr1X`v'0 = trend1*`v'0
+  3.         gen tr2X`v'0 = trend2*`v'0
+  4.         gen tr3X`v'0 = trend3*`v'0
+  5.         gen tr1X`v'bar = trend1*`v'bar
+  6.         gen tr2X`v'bar = trend2*`v'bar
+  7.         gen tr3X`v'bar = trend3*`v'bar
+  8. }
+
+. 
+. *** Regression with everything
+. local X "xx* tr1Xxx* tr2Xxx* tr3Xxx*"
+
+. local Xviol "efaviol0 efaviolbar tr1Xefaviol* tr2Xefaviol* tr3Xefaviol*"
+
+. local Xprop "efaprop0 efapropbar tr1Xefaprop* tr2Xefaprop* tr3Xefaprop*"
+
+. local Xmurd "efamurd0 efamurdbar tr1Xefamurd* tr2Xefamurd* tr3Xefamurd*"
+
+. 
+. reghdfe lpc_viol efaviol `Xviol' `X' , absorb(statenum year) cluster(statenum)
+note: efaviol0 is probably collinear with the fixed effects (all partialled-out values are close to zero; 
+> tol = 1.0e-09)
+note: efaviolbar is probably collinear with the fixed effects (all partialled-out values are close to zero
+> ; tol = 1.0e-09)
+note: xxprison0 is probably collinear with the fixed effects (all partialled-out values are close to zero;
+>  tol = 1.0e-09)
+note: xxprisonbar is probably collinear with the fixed effects (all partialled-out values are close to zer
+> o; tol = 1.0e-09)
+note: xxpolice0 is probably collinear with the fixed effects (all partialled-out values are close to zero;
+>  tol = 1.0e-09)
+note: xxpolicebar is probably collinear with the fixed effects (all partialled-out values are close to zer
+> o; tol = 1.0e-09)
+note: xxunemp0 is probably collinear with the fixed effects (all partialled-out values are close to zero; 
+> tol = 1.0e-09)
+note: xxunempbar is probably collinear with the fixed effects (all partialled-out values are close to zero
+> ; tol = 1.0e-09)
+note: xxincome0 is probably collinear with the fixed effects (all partialled-out values are close to zero;
+>  tol = 1.0e-09)
+note: xxincomebar is probably collinear with the fixed effects (all partialled-out values are close to zer
+> o; tol = 1.0e-09)
+note: xxpover0 is probably collinear with the fixed effects (all partialled-out values are close to zero; 
+> tol = 1.0e-09)
+note: xxpoverbar is probably collinear with the fixed effects (all partialled-out values are close to zero
+> ; tol = 1.0e-09)
+note: xxafdc150 is probably collinear with the fixed effects (all partialled-out values are close to zero;
+>  tol = 1.0e-09)
+note: xxafdc15bar is probably collinear with the fixed effects (all partialled-out values are close to zer
+> o; tol = 1.0e-09)
+note: xxgunlaw0 is probably collinear with the fixed effects (all partialled-out values are close to zero;
+>  tol = 1.0e-09)
+note: xxgunlawbar is probably collinear with the fixed effects (all partialled-out values are close to zer
+> o; tol = 1.0e-09)
+note: xxbeer0 is probably collinear with the fixed effects (all partialled-out values are close to zero; t
+> ol = 1.0e-09)
+note: xxbeerbar is probably collinear with the fixed effects (all partialled-out values are close to zero;
+>  tol = 1.0e-09)
+(MWFE estimator converged in 2 iterations)
+warning: missing F statistic; dropped variables due to collinearity or too few clusters
+note: efaviol0 omitted because of collinearity
+note: efaviolbar omitted because of collinearity
+note: xxprison0 omitted because of collinearity
+note: xxprisonbar omitted because of collinearity
+note: xxpolice0 omitted because of collinearity
+note: xxpolicebar omitted because of collinearity
+note: xxunemp0 omitted because of collinearity
+note: xxunempbar omitted because of collinearity
+note: xxincome0 omitted because of collinearity
+note: xxincomebar omitted because of collinearity
+note: xxpover0 omitted because of collinearity
+note: xxpoverbar omitted because of collinearity
+note: xxafdc150 omitted because of collinearity
+note: xxafdc15bar omitted because of collinearity
+note: xxgunlaw0 omitted because of collinearity
+note: xxgunlawbar omitted because of collinearity
+note: xxbeer0 omitted because of collinearity
+note: xxbeerbar omitted because of collinearity
+
+HDFE Linear regression                            Number of obs   =        624
+Absorbing 2 HDFE groups                           F(  63,     47) =          .
+Statistics robust to heteroskedasticity           Prob > F        =          .
+                                                  R-squared       =     0.9878
+                                                  Adj R-squared   =     0.9848
+                                                  Within R-sq.    =     0.5657
+Number of clusters (statenum) =         48        Root MSE        =     0.0781
+
+                                 (Std. err. adjusted for 48 clusters in statenum)
+---------------------------------------------------------------------------------
+                |               Robust
+       lpc_viol | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+----------------+----------------------------------------------------------------
+        efaviol |   .3718792   .2556286     1.45   0.152    -.1423793    .8861377
+       efaviol0 |          0  (omitted)
+     efaviolbar |          0  (omitted)
+   tr1Xefaviol0 |  -1.811463   9.514744    -0.19   0.850    -20.95266    17.32973
+ tr1Xefaviolbar |   .2854404   1.337984     0.21   0.832    -2.406236    2.977117
+   tr2Xefaviol0 |   12.70094   22.30565     0.57   0.572    -32.17224    57.57412
+ tr2Xefaviolbar |  -4.395801   3.596674    -1.22   0.228    -11.63138    2.839775
+   tr3Xefaviol0 |   -6.18023   13.77187    -0.45   0.656    -33.88565    21.52519
+ tr3Xefaviolbar |   2.522493   2.286023     1.10   0.275    -2.076392    7.121378
+       xxprison |   .0281026   .0529353     0.53   0.598    -.0783895    .1345948
+       xxpolice |   .0672093    .071983     0.93   0.355    -.0776018    .2120205
+        xxunemp |    .793386   .8612994     0.92   0.362    -.9393248    2.526097
+       xxincome |   69.44991   36.84483     1.88   0.066    -4.672328    143.5721
+        xxpover |   .0349422   .2490116     0.14   0.889    -.4660046    .5358889
+       xxafdc15 |   .0471279   .1137428     0.41   0.681    -.1816931    .2759489
+       xxgunlaw |  -.0390784   .0276099    -1.42   0.164    -.0946223    .0164654
+         xxbeer |  -.6888591   .5320307    -1.29   0.202    -1.759167    .3814485
+      xxprison0 |          0  (omitted)
+    xxprisonbar |          0  (omitted)
+      xxpolice0 |          0  (omitted)
+    xxpolicebar |          0  (omitted)
+       xxunemp0 |          0  (omitted)
+     xxunempbar |          0  (omitted)
+      xxincome0 |          0  (omitted)
+    xxincomebar |          0  (omitted)
+       xxpover0 |          0  (omitted)
+     xxpoverbar |          0  (omitted)
+      xxafdc150 |          0  (omitted)
+    xxafdc15bar |          0  (omitted)
+      xxgunlaw0 |          0  (omitted)
+    xxgunlawbar |          0  (omitted)
+        xxbeer0 |          0  (omitted)
+      xxbeerbar |          0  (omitted)
+  tr1Xxxprison0 |  -1.662899   1.507399    -1.10   0.276    -4.695394    1.369596
+tr1Xxxprisonbar |   1.405225    1.26471     1.11   0.272    -1.139043    3.949494
+  tr1Xxxpolice0 |  -5.988469   2.534803    -2.36   0.022    -11.08783   -.8891038
+tr1Xxxpolicebar |   6.023269   2.572486     2.34   0.024     .8480945    11.19844
+   tr1Xxxunemp0 |   33.28703   22.49536     1.48   0.146    -11.96781    78.54186
+ tr1Xxxunempbar |  -48.99801   32.73723    -1.50   0.141    -114.8568    16.86081
+  tr1Xxxincome0 |   918.7952   467.6015     1.96   0.055    -21.89761    1859.488
+tr1Xxxincomebar |  -517.8545   426.5863    -1.21   0.231    -1376.036    340.3264
+   tr1Xxxpover0 |   2.339563   7.568922     0.31   0.759    -12.88714    17.56627
+ tr1Xxxpoverbar |   -.470589   11.28408    -0.04   0.967    -23.17124    22.23006
+  tr1Xxxafdc150 |   .8103932    2.04825     0.40   0.694    -3.310154     4.93094
+tr1Xxxafdc15bar |  -2.236338   2.667951    -0.84   0.406    -7.603564    3.130888
+  tr1Xxxgunlaw0 |   .2986013   .6203844     0.48   0.633     -.949451    1.546654
+tr1Xxxgunlawbar |   .1039604    .639779     0.16   0.872    -1.183109     1.39103
+    tr1Xxxbeer0 |  -5.334064   13.82509    -0.39   0.701    -33.14657    22.47844
+  tr1Xxxbeerbar |   .4086244   14.57032     0.03   0.978    -28.90308    29.72033
+  tr2Xxxprison0 |   5.034795    3.71731     1.35   0.182    -2.443467    12.51306
+tr2Xxxprisonbar |  -3.500262   2.916656    -1.20   0.236    -9.367818    2.367294
+  tr2Xxxpolice0 |   11.47809    5.27163     2.18   0.035     .8729417    22.08325
+tr2Xxxpolicebar |  -13.21807   5.234275    -2.53   0.015    -23.74808   -2.688071
+   tr2Xxxunemp0 |  -81.78842   46.16859    -1.77   0.083    -174.6676     11.0908
+ tr2Xxxunempbar |   100.1039   65.66177     1.52   0.134     -31.9905    232.1984
+  tr2Xxxincome0 |  -1616.296   959.2091    -1.69   0.099    -3545.976     313.384
+tr2Xxxincomebar |   1225.367   846.2374     1.45   0.154     -477.043    2927.777
+   tr2Xxxpover0 |   1.320236   17.32134     0.08   0.940     -33.5258    36.16627
+ tr2Xxxpoverbar |   13.35765   24.22759     0.55   0.584    -35.38197    62.09726
+  tr2Xxxafdc150 |  -.3817009   4.183725    -0.09   0.928     -8.79827    8.034868
+tr2Xxxafdc15bar |   4.317437   5.531038     0.78   0.439    -6.809575    15.44445
+  tr2Xxxgunlaw0 |  -.5412696   1.285746    -0.42   0.676    -3.127857    2.045317
+tr2Xxxgunlawbar |  -.7724901   1.263612    -0.61   0.544     -3.31455     1.76957
+    tr2Xxxbeer0 |  -8.653719   31.18618    -0.28   0.783    -71.39223    54.08479
+  tr2Xxxbeerbar |   17.00896   32.87312     0.52   0.607    -49.12324    83.14115
+  tr3Xxxprison0 |  -2.672679   2.505723    -1.07   0.292    -7.713545    2.368186
+tr3Xxxprisonbar |   1.481784   1.898475     0.78   0.439    -2.337454    5.301023
+  tr3Xxxpolice0 |  -5.353553   3.185818    -1.68   0.100    -11.76259    1.055486
+tr3Xxxpolicebar |   6.700069   3.144575     2.13   0.038     .3740003    13.02614
+   tr3Xxxunemp0 |   51.68358   28.58991     1.81   0.077    -5.831899    109.1991
+ tr3Xxxunempbar |  -66.34164   39.52402    -1.68   0.100    -145.8537    13.17042
+  tr3Xxxincome0 |    845.907   586.9833     1.44   0.156     -334.951    2026.765
+tr3Xxxincomebar |  -743.5346   510.9414    -1.46   0.152    -1771.416     284.347
+   tr3Xxxpover0 |  -2.902941   10.81175    -0.27   0.789    -24.65338     18.8475
+ tr3Xxxpoverbar |  -9.105439   14.82857    -0.61   0.542    -38.93668     20.7258
+  tr3Xxxafdc150 |  -.3206458   2.537611    -0.13   0.900    -5.425661     4.78437
+tr3Xxxafdc15bar |  -2.093282   3.440138    -0.61   0.546    -9.013946    4.827382
+  tr3Xxxgunlaw0 |    .147824   .7937478     0.19   0.853     -1.44899    1.744639
+tr3Xxxgunlawbar |    .679643   .7470726     0.91   0.368    -.8232732    2.182559
+    tr3Xxxbeer0 |   9.873747   20.72631     0.48   0.636    -31.82222    51.56971
+  tr3Xxxbeerbar |  -13.74089   21.91246    -0.63   0.534    -57.82308    30.34129
+          _cons |  -14.20573   5.114322    -2.78   0.008    -24.49442   -3.917042
+---------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+    statenum |        48          48           0    *|
+        year |        13           0          13     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. display "Number of variables: " e(df_m)
+Number of variables: 63
+
+. reghdfe lpc_prop efaprop `Xprop' `X' , absorb(statenum year) cluster(statenum)
+note: efaprop0 is probably collinear with the fixed effects (all partialled-out values are close to zero; 
+> tol = 1.0e-09)
+note: efapropbar is probably collinear with the fixed effects (all partialled-out values are close to zero
+> ; tol = 1.0e-09)
+note: xxprison0 is probably collinear with the fixed effects (all partialled-out values are close to zero;
+>  tol = 1.0e-09)
+note: xxprisonbar is probably collinear with the fixed effects (all partialled-out values are close to zer
+> o; tol = 1.0e-09)
+note: xxpolice0 is probably collinear with the fixed effects (all partialled-out values are close to zero;
+>  tol = 1.0e-09)
+note: xxpolicebar is probably collinear with the fixed effects (all partialled-out values are close to zer
+> o; tol = 1.0e-09)
+note: xxunemp0 is probably collinear with the fixed effects (all partialled-out values are close to zero; 
+> tol = 1.0e-09)
+note: xxunempbar is probably collinear with the fixed effects (all partialled-out values are close to zero
+> ; tol = 1.0e-09)
+note: xxincome0 is probably collinear with the fixed effects (all partialled-out values are close to zero;
+>  tol = 1.0e-09)
+note: xxincomebar is probably collinear with the fixed effects (all partialled-out values are close to zer
+> o; tol = 1.0e-09)
+note: xxpover0 is probably collinear with the fixed effects (all partialled-out values are close to zero; 
+> tol = 1.0e-09)
+note: xxpoverbar is probably collinear with the fixed effects (all partialled-out values are close to zero
+> ; tol = 1.0e-09)
+note: xxafdc150 is probably collinear with the fixed effects (all partialled-out values are close to zero;
+>  tol = 1.0e-09)
+note: xxafdc15bar is probably collinear with the fixed effects (all partialled-out values are close to zer
+> o; tol = 1.0e-09)
+note: xxgunlaw0 is probably collinear with the fixed effects (all partialled-out values are close to zero;
+>  tol = 1.0e-09)
+note: xxgunlawbar is probably collinear with the fixed effects (all partialled-out values are close to zer
+> o; tol = 1.0e-09)
+note: xxbeer0 is probably collinear with the fixed effects (all partialled-out values are close to zero; t
+> ol = 1.0e-09)
+note: xxbeerbar is probably collinear with the fixed effects (all partialled-out values are close to zero;
+>  tol = 1.0e-09)
+(MWFE estimator converged in 2 iterations)
+warning: missing F statistic; dropped variables due to collinearity or too few clusters
+note: efaprop0 omitted because of collinearity
+note: efapropbar omitted because of collinearity
+note: xxprison0 omitted because of collinearity
+note: xxprisonbar omitted because of collinearity
+note: xxpolice0 omitted because of collinearity
+note: xxpolicebar omitted because of collinearity
+note: xxunemp0 omitted because of collinearity
+note: xxunempbar omitted because of collinearity
+note: xxincome0 omitted because of collinearity
+note: xxincomebar omitted because of collinearity
+note: xxpover0 omitted because of collinearity
+note: xxpoverbar omitted because of collinearity
+note: xxafdc150 omitted because of collinearity
+note: xxafdc15bar omitted because of collinearity
+note: xxgunlaw0 omitted because of collinearity
+note: xxgunlawbar omitted because of collinearity
+note: xxbeer0 omitted because of collinearity
+note: xxbeerbar omitted because of collinearity
+
+HDFE Linear regression                            Number of obs   =        624
+Absorbing 2 HDFE groups                           F(  63,     47) =          .
+Statistics robust to heteroskedasticity           Prob > F        =          .
+                                                  R-squared       =     0.9725
+                                                  Adj R-squared   =     0.9657
+                                                  Within R-sq.    =     0.6477
+Number of clusters (statenum) =         48        Root MSE        =     0.0471
+
+                                 (Std. err. adjusted for 48 clusters in statenum)
+---------------------------------------------------------------------------------
+                |               Robust
+       lpc_prop | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+----------------+----------------------------------------------------------------
+        efaprop |  -.0439209   .0592555    -0.74   0.462    -.1631275    .0752857
+       efaprop0 |          0  (omitted)
+     efapropbar |          0  (omitted)
+   tr1Xefaprop0 |   1.106694   1.819809     0.61   0.546     -2.55429    4.767677
+ tr1Xefapropbar |  -.0740208   .5390118    -0.14   0.891    -1.158373    1.010331
+   tr2Xefaprop0 |  -.1117564   4.914901    -0.02   0.982    -9.999262     9.77575
+ tr2Xefapropbar |   -.705139   1.363163    -0.52   0.607    -3.447469    2.037191
+   tr3Xefaprop0 |  -.8492751   3.252822    -0.26   0.795    -7.393109    5.694559
+ tr3Xefapropbar |   .6473273   .8954039     0.72   0.473    -1.153993    2.448647
+       xxprison |  -.0991571    .042663    -2.32   0.024     -.184984   -.0133302
+       xxpolice |   -.002588   .0524647    -0.05   0.961    -.1081334    .1029573
+        xxunemp |   .9018071   .4737997     1.90   0.063     -.051355    1.854969
+       xxincome |  -13.23535   20.47383    -0.65   0.521    -54.42339    27.95269
+        xxpover |   .1026871   .1427896     0.72   0.476    -.1845686    .3899427
+       xxafdc15 |   .0212624   .0542835     0.39   0.697    -.0879419    .1304667
+       xxgunlaw |   .0032881   .0158773     0.21   0.837     -.028653    .0352292
+         xxbeer |   .3636008   .2731225     1.33   0.190    -.1858509    .9130524
+      xxprison0 |          0  (omitted)
+    xxprisonbar |          0  (omitted)
+      xxpolice0 |          0  (omitted)
+    xxpolicebar |          0  (omitted)
+       xxunemp0 |          0  (omitted)
+     xxunempbar |          0  (omitted)
+      xxincome0 |          0  (omitted)
+    xxincomebar |          0  (omitted)
+       xxpover0 |          0  (omitted)
+     xxpoverbar |          0  (omitted)
+      xxafdc150 |          0  (omitted)
+    xxafdc15bar |          0  (omitted)
+      xxgunlaw0 |          0  (omitted)
+    xxgunlawbar |          0  (omitted)
+        xxbeer0 |          0  (omitted)
+      xxbeerbar |          0  (omitted)
+  tr1Xxxprison0 |  -.7522058   1.263271    -0.60   0.554    -3.293579    1.789167
+tr1Xxxprisonbar |   .9089717   .9531632     0.95   0.345    -1.008545    2.826489
+  tr1Xxxpolice0 |  -5.048221   1.353161    -3.73   0.001    -7.770431   -2.326011
+tr1Xxxpolicebar |   4.201282   1.426653     2.94   0.005     1.331227    7.071337
+   tr1Xxxunemp0 |   4.174164   13.09978     0.32   0.751     -22.1792    30.52753
+ tr1Xxxunempbar |  -9.769658   16.32885    -0.60   0.553    -42.61907    23.07975
+  tr1Xxxincome0 |  -133.3136   216.0549    -0.62   0.540      -567.96    301.3328
+tr1Xxxincomebar |   159.1109   213.2525     0.75   0.459    -269.8978    588.1196
+   tr1Xxxpover0 |   .1515678   3.455744     0.04   0.965    -6.800492    7.103627
+ tr1Xxxpoverbar |   1.843008   5.852168     0.31   0.754    -9.930036    13.61605
+  tr1Xxxafdc150 |   1.354852   .9572955     1.42   0.164    -.5709783    3.280682
+tr1Xxxafdc15bar |  -1.595585   1.632439    -0.98   0.333     -4.87963    1.688459
+  tr1Xxxgunlaw0 |    .101908   .2524537     0.40   0.688    -.4059634    .6097793
+tr1Xxxgunlawbar |  -.0479807   .2910738    -0.16   0.870    -.6335458    .5375843
+    tr1Xxxbeer0 |   11.18275   8.439103     1.33   0.192    -5.794539    28.16003
+  tr1Xxxbeerbar |  -11.66478   8.720031    -1.34   0.187    -29.20722    5.877661
+  tr2Xxxprison0 |   2.331896   2.860315     0.82   0.419    -3.422316    8.086109
+tr2Xxxprisonbar |  -2.586212   2.163788    -1.20   0.238    -6.939191    1.766767
+  tr2Xxxpolice0 |   10.99111   3.768123     2.92   0.005      3.41062    18.57159
+tr2Xxxpolicebar |  -9.033401   3.648081    -2.48   0.017    -16.37239   -1.694408
+   tr2Xxxunemp0 |  -12.80206   30.39644    -0.42   0.676    -73.95181     48.3477
+ tr2Xxxunempbar |   8.570724   41.53883     0.21   0.837    -74.99462    92.13606
+  tr2Xxxincome0 |  -200.6834   610.4978    -0.33   0.744    -1428.846     1027.48
+tr2Xxxincomebar |    460.097   546.0854     0.84   0.404    -638.4852    1558.679
+   tr2Xxxpover0 |   .6238066   7.246239     0.09   0.932    -13.95375    15.20136
+ tr2Xxxpoverbar |   7.538515   14.04507     0.54   0.594    -20.71653    35.79356
+  tr2Xxxafdc150 |  -3.069282   2.111924    -1.45   0.153    -7.317926    1.179362
+tr2Xxxafdc15bar |   3.476886   3.402979     1.02   0.312    -3.369024     10.3228
+  tr2Xxxgunlaw0 |  -.4938599   .6132324    -0.81   0.425    -1.727524    .7398044
+tr2Xxxgunlawbar |   .2491502    .694232     0.36   0.721    -1.147464    1.645765
+    tr2Xxxbeer0 |   -21.0329     22.013    -0.96   0.344    -65.31735    23.25155
+  tr2Xxxbeerbar |   20.27602   23.22999     0.87   0.387     -26.4567    67.00874
+  tr3Xxxprison0 |   -1.28106   1.771126    -0.72   0.473    -4.844106    2.281986
+tr3Xxxprisonbar |   1.462763   1.351852     1.08   0.285    -1.256813    4.182339
+  tr3Xxxpolice0 |  -5.869642   2.579718    -2.28   0.027    -11.05936   -.6799193
+tr3Xxxpolicebar |   4.594831   2.399604     1.91   0.062     -.232549     9.42221
+   tr3Xxxunemp0 |   12.70322   20.02849     0.63   0.529    -27.58891    52.99535
+ tr3Xxxunempbar |  -7.801314   28.68709    -0.27   0.787    -65.51229    49.90966
+  tr3Xxxincome0 |   221.5158   423.8799     0.52   0.604    -631.2205    1074.252
+tr3Xxxincomebar |   -468.156   385.6728    -1.21   0.231    -1244.029    307.7176
+   tr3Xxxpover0 |  -1.808895   4.849147    -0.37   0.711    -11.56412     7.94633
+ tr3Xxxpoverbar |  -6.907429   9.703438    -0.71   0.480    -26.42823    12.61337
+  tr3Xxxafdc150 |   1.867107    1.36076     1.37   0.177    -.8703884    4.604602
+tr3Xxxafdc15bar |  -2.270969   2.166682    -1.05   0.300     -6.62977    2.087832
+  tr3Xxxgunlaw0 |   .3316169   .4118368     0.81   0.425    -.4968919    1.160126
+tr3Xxxgunlawbar |  -.1787134   .4586136    -0.39   0.699    -1.101325    .7438982
+    tr3Xxxbeer0 |   10.98786   15.00101     0.73   0.468    -19.19028      41.166
+  tr3Xxxbeerbar |  -10.57493   16.02129    -0.66   0.512    -42.80561    21.65574
+          _cons |    1.58782   2.383162     0.67   0.508    -3.206483    6.382124
+---------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+    statenum |        48          48           0    *|
+        year |        13           0          13     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. display "Number of variables: " e(df_m)
+Number of variables: 63
+
+. reghdfe lpc_murd efamurd `Xmurd' `X' , absorb(statenum year) cluster(statenum)
+note: efamurd0 is probably collinear with the fixed effects (all partialled-out values are close to zero; 
+> tol = 1.0e-09)
+note: efamurdbar is probably collinear with the fixed effects (all partialled-out values are close to zero
+> ; tol = 1.0e-09)
+note: xxprison0 is probably collinear with the fixed effects (all partialled-out values are close to zero;
+>  tol = 1.0e-09)
+note: xxprisonbar is probably collinear with the fixed effects (all partialled-out values are close to zer
+> o; tol = 1.0e-09)
+note: xxpolice0 is probably collinear with the fixed effects (all partialled-out values are close to zero;
+>  tol = 1.0e-09)
+note: xxpolicebar is probably collinear with the fixed effects (all partialled-out values are close to zer
+> o; tol = 1.0e-09)
+note: xxunemp0 is probably collinear with the fixed effects (all partialled-out values are close to zero; 
+> tol = 1.0e-09)
+note: xxunempbar is probably collinear with the fixed effects (all partialled-out values are close to zero
+> ; tol = 1.0e-09)
+note: xxincome0 is probably collinear with the fixed effects (all partialled-out values are close to zero;
+>  tol = 1.0e-09)
+note: xxincomebar is probably collinear with the fixed effects (all partialled-out values are close to zer
+> o; tol = 1.0e-09)
+note: xxpover0 is probably collinear with the fixed effects (all partialled-out values are close to zero; 
+> tol = 1.0e-09)
+note: xxpoverbar is probably collinear with the fixed effects (all partialled-out values are close to zero
+> ; tol = 1.0e-09)
+note: xxafdc150 is probably collinear with the fixed effects (all partialled-out values are close to zero;
+>  tol = 1.0e-09)
+note: xxafdc15bar is probably collinear with the fixed effects (all partialled-out values are close to zer
+> o; tol = 1.0e-09)
+note: xxgunlaw0 is probably collinear with the fixed effects (all partialled-out values are close to zero;
+>  tol = 1.0e-09)
+note: xxgunlawbar is probably collinear with the fixed effects (all partialled-out values are close to zer
+> o; tol = 1.0e-09)
+note: xxbeer0 is probably collinear with the fixed effects (all partialled-out values are close to zero; t
+> ol = 1.0e-09)
+note: xxbeerbar is probably collinear with the fixed effects (all partialled-out values are close to zero;
+>  tol = 1.0e-09)
+(MWFE estimator converged in 2 iterations)
+warning: missing F statistic; dropped variables due to collinearity or too few clusters
+note: efamurd0 omitted because of collinearity
+note: efamurdbar omitted because of collinearity
+note: xxprison0 omitted because of collinearity
+note: xxprisonbar omitted because of collinearity
+note: xxpolice0 omitted because of collinearity
+note: xxpolicebar omitted because of collinearity
+note: xxunemp0 omitted because of collinearity
+note: xxunempbar omitted because of collinearity
+note: xxincome0 omitted because of collinearity
+note: xxincomebar omitted because of collinearity
+note: xxpover0 omitted because of collinearity
+note: xxpoverbar omitted because of collinearity
+note: xxafdc150 omitted because of collinearity
+note: xxafdc15bar omitted because of collinearity
+note: xxgunlaw0 omitted because of collinearity
+note: xxgunlawbar omitted because of collinearity
+note: xxbeer0 omitted because of collinearity
+note: xxbeerbar omitted because of collinearity
+
+HDFE Linear regression                            Number of obs   =        624
+Absorbing 2 HDFE groups                           F(  63,     47) =          .
+Statistics robust to heteroskedasticity           Prob > F        =          .
+                                                  R-squared       =     0.9289
+                                                  Adj R-squared   =     0.9114
+                                                  Within R-sq.    =     0.2022
+Number of clusters (statenum) =         48        Root MSE        =     0.1951
+
+                                 (Std. err. adjusted for 48 clusters in statenum)
+---------------------------------------------------------------------------------
+                |               Robust
+       lpc_murd | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+----------------+----------------------------------------------------------------
+        efamurd |    .619309   .6991393     0.89   0.380    -.7871777    2.025796
+       efamurd0 |          0  (omitted)
+     efamurdbar |          0  (omitted)
+   tr1Xefamurd0 |   53.23553   78.27204     0.68   0.500    -104.2275    210.6986
+ tr1Xefamurdbar |  -1.685885   3.017482    -0.56   0.579    -7.756276    4.384506
+   tr2Xefamurd0 |  -23.49473   179.2079    -0.13   0.896    -384.0145    337.0251
+ tr2Xefamurdbar |   -4.38782   9.085619    -0.48   0.631    -22.66573    13.89009
+   tr3Xefamurd0 |   10.56251   101.8771     0.10   0.918    -194.3878    215.5128
+ tr3Xefamurdbar |   2.539821   4.700047     0.54   0.591    -6.915454     11.9951
+       xxprison |  -.2813193   .1409151    -2.00   0.052    -.5648038    .0021653
+       xxpolice |   .1945299   .1747598     1.11   0.271    -.1570414    .5461013
+        xxunemp |  -1.091602   1.362925    -0.80   0.427    -3.833453    1.650249
+       xxincome |  -89.98411    76.0814    -1.18   0.243    -243.0401    63.07192
+        xxpover |  -.2195543   .6538667    -0.34   0.739    -1.534964    1.095856
+       xxafdc15 |  -.2589703   .2268748    -1.14   0.259    -.7153836    .1974429
+       xxgunlaw |   .0148456   .0542198     0.27   0.785    -.0942306    .1239218
+         xxbeer |  -.0664731   .7225457    -0.09   0.927    -1.520047    1.387101
+      xxprison0 |          0  (omitted)
+    xxprisonbar |          0  (omitted)
+      xxpolice0 |          0  (omitted)
+    xxpolicebar |          0  (omitted)
+       xxunemp0 |          0  (omitted)
+     xxunempbar |          0  (omitted)
+      xxincome0 |          0  (omitted)
+    xxincomebar |          0  (omitted)
+       xxpover0 |          0  (omitted)
+     xxpoverbar |          0  (omitted)
+      xxafdc150 |          0  (omitted)
+    xxafdc15bar |          0  (omitted)
+      xxgunlaw0 |          0  (omitted)
+    xxgunlawbar |          0  (omitted)
+        xxbeer0 |          0  (omitted)
+      xxbeerbar |          0  (omitted)
+  tr1Xxxprison0 |  -1.792136   2.626463    -0.68   0.498    -7.075899    3.491627
+tr1Xxxprisonbar |   .9873266     2.1247     0.46   0.644    -3.287019    5.261672
+  tr1Xxxpolice0 |  -5.527618   3.762881    -1.47   0.148    -13.09756    2.042322
+tr1Xxxpolicebar |     4.9749    3.69485     1.35   0.185     -2.45818    12.40798
+   tr1Xxxunemp0 |   10.03601   21.00292     0.48   0.635    -32.21641    52.28844
+ tr1Xxxunempbar |   6.014056   31.77633     0.19   0.851    -57.91168    69.93979
+  tr1Xxxincome0 |  -875.9365   673.9921    -1.30   0.200    -2231.834    479.9607
+tr1Xxxincomebar |   1300.347     720.45     1.80   0.077    -149.0111    2749.706
+   tr1Xxxpover0 |   .4779239   9.076045     0.05   0.958    -17.78072    18.73657
+ tr1Xxxpoverbar |  -1.811319   14.38416    -0.13   0.900    -30.74851    27.12587
+  tr1Xxxafdc150 |   1.390721   2.387231     0.58   0.563    -3.411768    6.193211
+tr1Xxxafdc15bar |  -2.020114   3.790295    -0.53   0.597    -9.645203    5.604976
+  tr1Xxxgunlaw0 |  -.5610098   .6197211    -0.91   0.370    -1.807728    .6857082
+tr1Xxxgunlawbar |    .427202   .5938818     0.72   0.475    -.7675341    1.621938
+    tr1Xxxbeer0 |   2.385378   20.39339     0.12   0.907    -38.64083    43.41159
+  tr1Xxxbeerbar |   1.060871   21.91549     0.05   0.962    -43.02741    45.14916
+  tr2Xxxprison0 |   5.470354   5.629222     0.97   0.336    -5.854179    16.79489
+tr2Xxxprisonbar |  -2.873275   4.524815    -0.64   0.529    -11.97603    6.229479
+  tr2Xxxpolice0 |   7.971591   8.982839     0.89   0.379    -10.09955    26.04273
+tr2Xxxpolicebar |  -9.612225   8.747387    -1.10   0.277     -27.2097    7.985249
+   tr2Xxxunemp0 |  -20.18013   49.48493    -0.41   0.685     -119.731    79.37071
+ tr2Xxxunempbar |  -1.570276    71.9087    -0.02   0.983    -146.2319    143.0914
+  tr2Xxxincome0 |   1013.925   1630.401     0.62   0.537     -2266.02     4293.87
+tr2Xxxincomebar |  -796.1094   1815.614    -0.44   0.663    -4448.655    2856.436
+   tr2Xxxpover0 |  -23.36198    19.6807    -1.19   0.241    -62.95445    16.23049
+ tr2Xxxpoverbar |    40.1088   32.77583     1.22   0.227    -25.82765    106.0453
+  tr2Xxxafdc150 |  -7.041838   5.494763    -1.28   0.206    -18.09587    4.012199
+tr2Xxxafdc15bar |   10.42612   8.007469     1.30   0.199    -5.682826    26.53507
+  tr2Xxxgunlaw0 |   1.006246   1.448826     0.69   0.491    -1.908415    3.920908
+tr2Xxxgunlawbar |  -2.230066   1.385716    -1.61   0.114    -5.017766    .5576347
+    tr2Xxxbeer0 |  -13.96748   48.17937    -0.29   0.773    -110.8919    82.95691
+  tr2Xxxbeerbar |   1.132869   52.99353     0.02   0.983    -105.4764    107.7421
+  tr3Xxxprison0 |  -2.917639   3.221522    -0.91   0.370    -9.398505    3.563227
+tr3Xxxprisonbar |   1.298909   2.657279     0.49   0.627    -4.046847    6.644666
+  tr3Xxxpolice0 |  -1.962324   5.665305    -0.35   0.731    -13.35945    9.434799
+tr3Xxxpolicebar |   3.857152   5.419645     0.71   0.480    -7.045767    14.76007
+   tr3Xxxunemp0 |    13.9732   32.78892     0.43   0.672     -51.9896    79.93601
+ tr3Xxxunempbar |  -14.81579   48.53842    -0.31   0.762    -112.4625    82.83092
+  tr3Xxxincome0 |  -221.8059   1029.714    -0.22   0.830    -2293.323    1849.711
+tr3Xxxincomebar |   -284.567   1157.504    -0.25   0.807    -2613.164     2044.03
+   tr3Xxxpover0 |   21.94806   12.16678     1.80   0.078    -2.528343    46.42447
+ tr3Xxxpoverbar |   -32.7228   19.26884    -1.70   0.096     -71.4867    6.041101
+  tr3Xxxafdc150 |   5.735257   3.623484     1.58   0.120    -1.554252    13.02477
+tr3Xxxafdc15bar |  -7.996936   4.916159    -1.63   0.110    -17.88697    1.893099
+  tr3Xxxgunlaw0 |  -.4637992   .9278752    -0.50   0.620    -2.330443    1.402845
+tr3Xxxgunlawbar |   1.730129   .8768969     1.97   0.054    -.0339598    3.494218
+    tr3Xxxbeer0 |   16.56628   30.93394     0.54   0.595    -45.66477    78.79734
+  tr3Xxxbeerbar |  -8.074989   34.34474    -0.24   0.815    -77.16769    61.01771
+          _cons |  -8.495955   8.442329    -1.01   0.319    -25.47973    8.487821
+---------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+    statenum |        48          48           0    *|
+        year |        13           0          13     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. display "Number of variables: " e(df_m)
+Number of variables: 63
+
+. 
+. *** Set seed for reproducibility
+. set seed 73023
+
+. 
+. *** Lasso results using plug-in penalization and clustered loadings
+. pdslasso lpc_viol efaviol (`Xviol' `X' i.year) , fe partial(i.year) cluster(statenum) loptions(xdep)
+Fixed effects transformation...
+Warning: collinearities encountered in variables to partial out.
+1.  (PDS/CHS) Selecting HD controls for dep var lpc_viol...
+Selected: tr3Xefaviolbar xxpover xxbeer tr1Xxxpover0
+2.  (PDS/CHS) Selecting HD controls for exog regressor efaviol...
+Selected: tr1Xefaviolbar tr2Xefaviolbar tr3Xefaviol0 xxincome xxbeer tr1Xxxprisonbar tr1Xxxafdc15bar
+          tr2Xxxincomebar tr3Xxxincomebar
+
+
+Estimation results:
+
+Specification:
+Regularization method:                 lasso
+Penalty loadings:                      cluster-lasso
+Number of observations:                624
+Number of clusters:                     48
+Number of fixed effects:                48
+Exogenous (1):                         efaviol
+High-dim controls (80):                efaviol0 efaviolbar tr1Xefaviol0 tr1Xefaviolbar tr2Xefaviol0
+                                       tr2Xefaviolbar tr3Xefaviol0 tr3Xefaviolbar xxprison xxpolice
+                                       xxunemp xxincome xxpover xxafdc15 xxgunlaw xxbeer xxprison0
+                                       xxprisonbar xxpolice0 xxpolicebar xxunemp0 xxunempbar xxincome0
+                                       xxincomebar xxpover0 xxpoverbar xxafdc150 xxafdc15bar xxgunlaw0
+                                       xxgunlawbar xxbeer0 xxbeerbar tr1Xxxprison0 tr1Xxxprisonbar
+                                       tr1Xxxpolice0 tr1Xxxpolicebar tr1Xxxunemp0 tr1Xxxunempbar
+                                       tr1Xxxincome0 tr1Xxxincomebar tr1Xxxpover0 tr1Xxxpoverbar
+                                       tr1Xxxafdc150 tr1Xxxafdc15bar tr1Xxxgunlaw0 tr1Xxxgunlawbar
+                                       tr1Xxxbeer0 tr1Xxxbeerbar tr2Xxxprison0 tr2Xxxprisonbar
+                                       tr2Xxxpolice0 tr2Xxxpolicebar tr2Xxxunemp0 tr2Xxxunempbar
+                                       tr2Xxxincome0 tr2Xxxincomebar tr2Xxxpover0 tr2Xxxpoverbar
+                                       tr2Xxxafdc150 tr2Xxxafdc15bar tr2Xxxgunlaw0 tr2Xxxgunlawbar
+                                       tr2Xxxbeer0 tr2Xxxbeerbar tr3Xxxprison0 tr3Xxxprisonbar
+                                       tr3Xxxpolice0 tr3Xxxpolicebar tr3Xxxunemp0 tr3Xxxunempbar
+                                       tr3Xxxincome0 tr3Xxxincomebar tr3Xxxpover0 tr3Xxxpoverbar
+                                       tr3Xxxafdc150 tr3Xxxafdc15bar tr3Xxxgunlaw0 tr3Xxxgunlawbar
+                                       tr3Xxxbeer0 tr3Xxxbeerbar
+Selected controls (12):                tr1Xefaviolbar tr2Xefaviolbar tr3Xefaviol0 tr3Xefaviolbar xxincome
+                                       xxpover xxbeer tr1Xxxprisonbar tr1Xxxpover0 tr1Xxxafdc15bar
+                                       tr2Xxxincomebar tr3Xxxincomebar
+Partialled-out controls (13):          85b.year 86.year 87.year 88.year 89.year 90.year 91.year 92.year
+                                       93.year 94.year 95.year 96.year 97.year
+
+Structural equation (fixed effects, #groups=48):
+
+OLS using CHS lasso-orthogonalized vars
+(Std. Err. adjusted for 48 clusters in statenum)
+------------------------------------------------------------------------------
+             |               Robust
+    lpc_viol | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+     efaviol |  -.1337485   .3022957    -0.44   0.658    -.7262371    .4587401
+------------------------------------------------------------------------------
+
+OLS using CHS post-lasso-orthogonalized vars
+(Std. Err. adjusted for 48 clusters in statenum)
+------------------------------------------------------------------------------
+             |               Robust
+    lpc_viol | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+     efaviol |  -.0416142    .300871    -0.14   0.890    -.6313106    .5480821
+------------------------------------------------------------------------------
+
+OLS with PDS-selected variables and full regressor set
+(Std. Err. adjusted for 48 clusters in statenum)
+---------------------------------------------------------------------------------
+                |               Robust
+       lpc_viol | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
+----------------+----------------------------------------------------------------
+        efaviol |   .0148349   .2885354     0.05   0.959    -.5506842     .580354
+ tr1Xefaviolbar |   .5620591   .3652637     1.54   0.124    -.1538447    1.277963
+ tr2Xefaviolbar |  -1.385697   1.129708    -1.23   0.220    -3.599883    .8284901
+   tr3Xefaviol0 |   .1012278   3.986819     0.03   0.980    -7.712794    7.915249
+ tr3Xefaviolbar |   .5196065   .5921899     0.88   0.380    -.6410643    1.680277
+       xxincome |   55.83236   35.28947     1.58   0.114    -13.33373    124.9984
+        xxpover |   .0800168   .2664283     0.30   0.764    -.4421731    .6022067
+         xxbeer |   .1022399   .5618336     0.18   0.856    -.9989337    1.203413
+tr1Xxxprisonbar |   .0188648    .114303     0.17   0.869    -.2051649    .2428946
+   tr1Xxxpover0 |   2.694657   1.110294     2.43   0.015     .5185218    4.870792
+tr1Xxxafdc15bar |   -.070529   .2739647    -0.26   0.797    -.6074898    .4664319
+tr2Xxxincomebar |   41.36016    114.052     0.36   0.717    -182.1777     264.898
+tr3Xxxincomebar |  -8.222383   100.1719    -0.08   0.935    -204.5556    188.1108
+       __00002C |          0  (omitted)
+                |
+           year |
+            86  |  -.0364689   .0868257    -0.42   0.674    -.2066441    .1337063
+            87  |  -.1867206   .2842724    -0.66   0.511    -.7438843    .3704432
+            88  |  -.3234778   .5726923    -0.56   0.572    -1.445934    .7989785
+            89  |  -.5061862   .9276488    -0.55   0.585    -2.324344    1.311972
+            90  |  -.6682223    1.31052    -0.51   0.610    -3.236795     1.90035
+            91  |  -.9112389    1.70695    -0.53   0.593    -4.256799    2.434321
+            92  |  -1.232013   2.089103    -0.59   0.555     -5.32658    2.862554
+            93  |  -1.588766   2.438566    -0.65   0.515    -6.368267    3.190735
+            94  |  -2.013127   2.756394    -0.73   0.465     -7.41556    3.389306
+            95  |  -2.473023   3.050861    -0.81   0.418    -8.452601    3.506555
+            96  |  -2.997496   3.360383    -0.89   0.372    -9.583725    3.588734
+            97  |  -3.488498   3.748639    -0.93   0.352    -10.83569    3.858699
+---------------------------------------------------------------------------------
+Standard errors and test statistics valid for the following variables only:
+    efaviol
+------------------------------------------------------------------------------
+
+. pdslasso lpc_prop efaprop (`Xprop' `X' i.year) , fe partial(i.year) cluster(statenum) loptions(xdep)
+Fixed effects transformation...
+Warning: collinearities encountered in variables to partial out.
+1.  (PDS/CHS) Selecting HD controls for dep var lpc_prop...
+Selected: tr1Xefaprop0 tr1Xxxafdc150 tr2Xxxafdc150 tr3Xxxincome0
+2.  (PDS/CHS) Selecting HD controls for exog regressor efaprop...
+Selected: tr1Xefapropbar xxbeer tr1Xxxprisonbar tr1Xxxincomebar
+
+
+Estimation results:
+
+Specification:
+Regularization method:                 lasso
+Penalty loadings:                      cluster-lasso
+Number of observations:                624
+Number of clusters:                     48
+Number of fixed effects:                48
+Exogenous (1):                         efaprop
+High-dim controls (80):                efaprop0 efapropbar tr1Xefaprop0 tr1Xefapropbar tr2Xefaprop0
+                                       tr2Xefapropbar tr3Xefaprop0 tr3Xefapropbar xxprison xxpolice
+                                       xxunemp xxincome xxpover xxafdc15 xxgunlaw xxbeer xxprison0
+                                       xxprisonbar xxpolice0 xxpolicebar xxunemp0 xxunempbar xxincome0
+                                       xxincomebar xxpover0 xxpoverbar xxafdc150 xxafdc15bar xxgunlaw0
+                                       xxgunlawbar xxbeer0 xxbeerbar tr1Xxxprison0 tr1Xxxprisonbar
+                                       tr1Xxxpolice0 tr1Xxxpolicebar tr1Xxxunemp0 tr1Xxxunempbar
+                                       tr1Xxxincome0 tr1Xxxincomebar tr1Xxxpover0 tr1Xxxpoverbar
+                                       tr1Xxxafdc150 tr1Xxxafdc15bar tr1Xxxgunlaw0 tr1Xxxgunlawbar
+                                       tr1Xxxbeer0 tr1Xxxbeerbar tr2Xxxprison0 tr2Xxxprisonbar
+                                       tr2Xxxpolice0 tr2Xxxpolicebar tr2Xxxunemp0 tr2Xxxunempbar
+                                       tr2Xxxincome0 tr2Xxxincomebar tr2Xxxpover0 tr2Xxxpoverbar
+                                       tr2Xxxafdc150 tr2Xxxafdc15bar tr2Xxxgunlaw0 tr2Xxxgunlawbar
+                                       tr2Xxxbeer0 tr2Xxxbeerbar tr3Xxxprison0 tr3Xxxprisonbar
+                                       tr3Xxxpolice0 tr3Xxxpolicebar tr3Xxxunemp0 tr3Xxxunempbar
+                                       tr3Xxxincome0 tr3Xxxincomebar tr3Xxxpover0 tr3Xxxpoverbar
+                                       tr3Xxxafdc150 tr3Xxxafdc15bar tr3Xxxgunlaw0 tr3Xxxgunlawbar
+                                       tr3Xxxbeer0 tr3Xxxbeerbar
+Selected controls (8):                 tr1Xefaprop0 tr1Xefapropbar xxbeer tr1Xxxprisonbar tr1Xxxincomebar
+                                       tr1Xxxafdc150 tr2Xxxafdc150 tr3Xxxincome0
+Partialled-out controls (13):          85b.year 86.year 87.year 88.year 89.year 90.year 91.year 92.year
+                                       93.year 94.year 95.year 96.year 97.year
+
+Structural equation (fixed effects, #groups=48):
+
+OLS using CHS lasso-orthogonalized vars
+(Std. Err. adjusted for 48 clusters in statenum)
+------------------------------------------------------------------------------
+             |               Robust
+    lpc_prop | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+     efaprop |  -.0647658   .0495705    -1.31   0.191    -.1619222    .0323907
+------------------------------------------------------------------------------
+
+OLS using CHS post-lasso-orthogonalized vars
+(Std. Err. adjusted for 48 clusters in statenum)
+------------------------------------------------------------------------------
+             |               Robust
+    lpc_prop | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+     efaprop |   -.063273   .0607827    -1.04   0.298     -.182405     .055859
+------------------------------------------------------------------------------
+
+OLS with PDS-selected variables and full regressor set
+(Std. Err. adjusted for 48 clusters in statenum)
+---------------------------------------------------------------------------------
+                |               Robust
+       lpc_prop | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
+----------------+----------------------------------------------------------------
+        efaprop |  -.0024899   .0755604    -0.03   0.974    -.1505856    .1456057
+   tr1Xefaprop0 |   .4366748   .4975719     0.88   0.380    -.5385483    1.411898
+ tr1Xefapropbar |  -.2101302    .210071    -1.00   0.317    -.6218618    .2016014
+         xxbeer |   .6557267   .3250021     2.02   0.044     .0187343    1.292719
+tr1Xxxprisonbar |   .0390714   .0512789     0.76   0.446    -.0614333    .1395761
+tr1Xxxincomebar |   95.67381   31.58772     3.03   0.002     33.76302    157.5846
+  tr1Xxxafdc150 |  -.4883892   .2508916    -1.95   0.052    -.9801276    .0033493
+  tr2Xxxafdc150 |   .2604141    .227215     1.15   0.252    -.1849192    .7057473
+  tr3Xxxincome0 |  -98.80212    27.2414    -3.63   0.000    -152.1943   -45.40995
+       __00002C |          0  (omitted)
+                |
+           year |
+            86  |  -.7136284   .2464502    -2.90   0.004    -1.196662   -.2305949
+            87  |  -1.410052   .4891428    -2.88   0.004    -2.368754   -.4513499
+            88  |  -2.061107   .7218049    -2.86   0.004    -3.475819   -.6463957
+            89  |  -2.604448   .9396208    -2.77   0.006     -4.44607   -.7628247
+            90  |  -3.018875   1.138632    -2.65   0.008    -5.250553   -.7871971
+            91  |  -3.256177    1.31461    -2.48   0.013    -5.832765    -.679589
+            92  |  -3.348707   1.469788    -2.28   0.023     -6.22944   -.4679751
+            93  |  -3.198258   1.608858    -1.99   0.047    -6.351562   -.0449535
+            94  |   -2.75012   1.746182    -1.57   0.115    -6.172573    .6723341
+            95  |  -1.986923   1.897299    -1.05   0.295     -5.70556    1.731714
+            96  |  -.9317904   2.091822    -0.45   0.656    -5.031685    3.168104
+            97  |   .5087863   2.359128     0.22   0.829    -4.115019    5.132592
+---------------------------------------------------------------------------------
+Standard errors and test statistics valid for the following variables only:
+    efaprop
+------------------------------------------------------------------------------
+
+. pdslasso lpc_murd efamurd (`Xmurd' `X' i.year) , fe partial(i.year) cluster(statenum) loptions(xdep)
+Fixed effects transformation...
+Warning: collinearities encountered in variables to partial out.
+1.  (PDS/CHS) Selecting HD controls for dep var lpc_murd...
+Selected: tr3Xefamurd0
+2.  (PDS/CHS) Selecting HD controls for exog regressor efamurd...
+Selected: tr2Xefamurdbar tr3Xefamurd0 tr2Xxxincomebar
+
+
+Estimation results:
+
+Specification:
+Regularization method:                 lasso
+Penalty loadings:                      cluster-lasso
+Number of observations:                624
+Number of clusters:                     48
+Number of fixed effects:                48
+Exogenous (1):                         efamurd
+High-dim controls (80):                efamurd0 efamurdbar tr1Xefamurd0 tr1Xefamurdbar tr2Xefamurd0
+                                       tr2Xefamurdbar tr3Xefamurd0 tr3Xefamurdbar xxprison xxpolice
+                                       xxunemp xxincome xxpover xxafdc15 xxgunlaw xxbeer xxprison0
+                                       xxprisonbar xxpolice0 xxpolicebar xxunemp0 xxunempbar xxincome0
+                                       xxincomebar xxpover0 xxpoverbar xxafdc150 xxafdc15bar xxgunlaw0
+                                       xxgunlawbar xxbeer0 xxbeerbar tr1Xxxprison0 tr1Xxxprisonbar
+                                       tr1Xxxpolice0 tr1Xxxpolicebar tr1Xxxunemp0 tr1Xxxunempbar
+                                       tr1Xxxincome0 tr1Xxxincomebar tr1Xxxpover0 tr1Xxxpoverbar
+                                       tr1Xxxafdc150 tr1Xxxafdc15bar tr1Xxxgunlaw0 tr1Xxxgunlawbar
+                                       tr1Xxxbeer0 tr1Xxxbeerbar tr2Xxxprison0 tr2Xxxprisonbar
+                                       tr2Xxxpolice0 tr2Xxxpolicebar tr2Xxxunemp0 tr2Xxxunempbar
+                                       tr2Xxxincome0 tr2Xxxincomebar tr2Xxxpover0 tr2Xxxpoverbar
+                                       tr2Xxxafdc150 tr2Xxxafdc15bar tr2Xxxgunlaw0 tr2Xxxgunlawbar
+                                       tr2Xxxbeer0 tr2Xxxbeerbar tr3Xxxprison0 tr3Xxxprisonbar
+                                       tr3Xxxpolice0 tr3Xxxpolicebar tr3Xxxunemp0 tr3Xxxunempbar
+                                       tr3Xxxincome0 tr3Xxxincomebar tr3Xxxpover0 tr3Xxxpoverbar
+                                       tr3Xxxafdc150 tr3Xxxafdc15bar tr3Xxxgunlaw0 tr3Xxxgunlawbar
+                                       tr3Xxxbeer0 tr3Xxxbeerbar
+Selected controls (3):                 tr2Xefamurdbar tr3Xefamurd0 tr2Xxxincomebar
+Partialled-out controls (13):          85b.year 86.year 87.year 88.year 89.year 90.year 91.year 92.year
+                                       93.year 94.year 95.year 96.year 97.year
+
+Structural equation (fixed effects, #groups=48):
+
+OLS using CHS lasso-orthogonalized vars
+(Std. Err. adjusted for 48 clusters in statenum)
+------------------------------------------------------------------------------
+             |               Robust
+    lpc_murd | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+     efamurd |   .0773837   .3976751     0.19   0.846    -.7020451    .8568125
+------------------------------------------------------------------------------
+
+OLS using CHS post-lasso-orthogonalized vars
+(Std. Err. adjusted for 48 clusters in statenum)
+------------------------------------------------------------------------------
+             |               Robust
+    lpc_murd | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+     efamurd |   .2482604   .4132214     0.60   0.548    -.5616387    1.058159
+------------------------------------------------------------------------------
+
+OLS with PDS-selected variables and full regressor set
+(Std. Err. adjusted for 48 clusters in statenum)
+---------------------------------------------------------------------------------
+                |               Robust
+       lpc_murd | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
+----------------+----------------------------------------------------------------
+        efamurd |   .2482604   .4366413     0.57   0.570    -.6075409    1.104062
+ tr2Xefamurdbar |  -1.036797   1.821857    -0.57   0.569    -4.607572    2.533977
+   tr3Xefamurd0 |   5.979276   27.77284     0.22   0.830    -48.45449    60.41304
+tr2Xxxincomebar |    -21.707   46.05967    -0.47   0.637    -111.9823    68.56829
+       __00002C |          0  (omitted)
+                |
+           year |
+            86  |   .0823239   .0399805     2.06   0.039     .0039636    .1606842
+            87  |   .0976604    .123372     0.79   0.429    -.1441444    .3394652
+            88  |   .1924106   .2696478     0.71   0.475    -.3360894    .7209106
+            89  |    .291421    .495507     0.59   0.556    -.6797549    1.262597
+            90  |   .4847862   .7638612     0.63   0.526    -1.012354    1.981927
+            91  |   .6792058   1.110973     0.61   0.541    -1.498262    2.856674
+            92  |   .8432719   1.505055     0.56   0.575    -2.106582    3.793126
+            93  |   1.150359   1.970788     0.58   0.559    -2.712315    5.013033
+            94  |   1.294133   2.500456     0.52   0.605     -3.60667    6.194937
+            95  |    1.58654   3.091163     0.51   0.608    -4.472028    7.645108
+            96  |   1.853487   3.747473     0.49   0.621    -5.491424    9.198399
+            97  |   2.111298   4.465557     0.47   0.636    -6.641033    10.86363
+---------------------------------------------------------------------------------
+Standard errors and test statistics valid for the following variables only:
+    efamurd
+------------------------------------------------------------------------------
+
+. 
+. *** Try DML with differenced data
+. gen Dviol = D.lpc_viol
+(48 missing values generated)
+
+. gen Dprop = D.lpc_prop
+(48 missing values generated)
+
+. gen Dmurd = D.lpc_murd
+(48 missing values generated)
+
+. 
+. gen Daviol = D.efaviol
+(48 missing values generated)
+
+. gen Daprop = D.efaprop
+(48 missing values generated)
+
+. gen Damurd = D.efamurd
+(48 missing values generated)
+
+. 
+. local xx "xxprison xxpolice xxunemp xxincome xxpover xxafdc15 xxgunlaw xxbeer"
+
+. 
+. foreach v of varlist `xx' {
+  2.         gen L`v' = L.`v'
+  3. }
+(48 missing values generated)
+(48 missing values generated)
+(48 missing values generated)
+(48 missing values generated)
+(48 missing values generated)
+(48 missing values generated)
+(48 missing values generated)
+(48 missing values generated)
+
+.         
+. global Xv efaviol0 efaviolbar xx* Lxx* trend1
+
+. global Xp efaprop0 efapropbar xx* Lxx* trend1
+
+. global Xm efamurd0 efamurdbar xx* Lxx* trend1
+
+. 
+. * Violent crime
+. ddml init partial, kfolds(5) reps(10) fcluster(statenum)
+
+. 
+. *** add learners for E[Y|X]
+. ddml E[Y|X]: reg Dviol efaviol0 efaviolbar xx* Lxx* i.year
+Learner Y1_reg added successfully.
+
+. ddml E[Y|X]: pystacked Dviol $Xv i.year || method(lassocv)
+Learner Y2_pystacked added successfully.
+
+. ddml E[Y|X]: pystacked Dviol $Xv || method(rf) ///
+>         opt(n_estimators(500) min_samples_leaf(5) random_state(720))
+Learner Y3_pystacked added successfully.
+
+. ddml E[Y|X]: pystacked Dviol $Xv || method(rf) ///
+>         opt(n_estimators(500) min_samples_leaf(20) random_state(720))
+Learner Y4_pystacked added successfully.
+
+. ddml E[Y|X]: pystacked Dviol $Xv || method(nnet) ///
+>         opt(hidden_layer_sizes(100 50 50 100) alpha(0) random_state(720) ///
+>         validation_fraction(.2) n_iter_no_change(5) max_iter(1000))
+Learner Y5_pystacked added successfully.
+
+. ddml E[Y|X]: pystacked Dviol $Xv || method(nnet) ///
+>         opt(hidden_layer_sizes(100 100 100 100) alpha(0) random_state(720) ///
+>         validation_fraction(.2) n_iter_no_change(5) max_iter(1000))     
+Learner Y6_pystacked added successfully.
+
+. 
+. *** add learners for E[D|X]
+. ddml E[D|X]: reg Daviol efaviol0 efaviolbar xx* Lxx* i.year
+Learner D1_reg added successfully.
+
+. ddml E[D|X]: pystacked Daviol $Xv i.year || method(lassocv)
+Learner D2_pystacked added successfully.
+
+. ddml E[D|X]: pystacked Daviol $Xv || method(rf) ///
+>         opt(n_estimators(500) min_samples_leaf(5) random_state(720))
+Learner D3_pystacked added successfully.
+
+. ddml E[D|X]: pystacked Daviol $Xv || method(rf) ///
+>         opt(n_estimators(500) min_samples_leaf(20) random_state(720))
+Learner D4_pystacked added successfully.
+
+. ddml E[D|X]: pystacked Daviol $Xv || method(nnet) ///
+>         opt(hidden_layer_sizes(100 50 50 100) alpha(0) random_state(720) ///
+>         validation_fraction(.2) n_iter_no_change(5) max_iter(1000))
+Learner D5_pystacked added successfully.
+
+. ddml E[D|X]: pystacked Daviol $Xv || method(nnet) ///
+>         opt(hidden_layer_sizes(100 100 100 100) alpha(0) random_state(720) ///
+>         validation_fraction(.2) n_iter_no_change(5) max_iter(1000))     
+Learner D6_pystacked added successfully.
+
+. 
+. ** cross-fitting
+. ddml crossfit 
+Cross-fitting E[y|X] equation: Dviol
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting E[D|X] equation: Daviol
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+
+. ddml estimate , cluster(statenum) 
+
+
+Model:                  partial, crossfit folds k=5, resamples r=10
+Mata global (mname):    m0
+                        Folds respect clustering by statenum
+Dependent variable (Y): Dviol
+ Dviol learners:        Y1_reg Y2_pystacked Y3_pystacked Y4_pystacked Y5_pystacked Y6_pystacked
+D equations (1):        Daviol
+ Daviol learners:       D1_reg D2_pystacked D3_pystacked D4_pystacked D5_pystacked D6_pystacked
+
+DDML estimation results:
+spec  r     Y learner     D learner         b        SE 
+ mse  1  Y2_pystacked  D2_pystacked    -0.053    (0.128)
+ mse  2  Y2_pystacked  D2_pystacked    -0.142    (0.121)
+ mse  3  Y2_pystacked  D2_pystacked    -0.029    (0.132)
+ mse  4  Y2_pystacked  D2_pystacked    -0.111    (0.139)
+ mse  5  Y2_pystacked  D2_pystacked    -0.175    (0.145)
+ mse  6  Y2_pystacked  D2_pystacked    -0.129    (0.128)
+ mse  7  Y2_pystacked  D2_pystacked    -0.109    (0.140)
+ mse  8  Y2_pystacked  D2_pystacked    -0.074    (0.133)
+ mse  9  Y2_pystacked  D2_pystacked    -0.091    (0.125)
+ mse 10  Y2_pystacked  D2_pystacked    -0.121    (0.135)
+mse = minimum MSE specification for that resample.
+
+Mean/med    Y learner     D learner         b        SE 
+ mse mn     [min-mse]     [min-mse]    -0.103    (0.138)
+ mse md     [min-mse]     [min-mse]    -0.110    (0.139)
+
+Median over 10 min-mse resamples
+y-E[y|X]  = y-Y2_pystacked                         Number of obs   =       624
+D-E[D|X]  = D-D2_pystacked 
+                              (Std. err. adjusted for 48 clusters in statenum)
+------------------------------------------------------------------------------
+             |               Robust
+       Dviol | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+      Daviol |  -.1101406   .1385847    -0.79   0.427    -.3817617    .1614805
+------------------------------------------------------------------------------
+
+Summary over 10 resamples:
+       D eqn      mean       min       p25       p50       p75       max
+      Daviol     -0.1034   -0.1754   -0.1290   -0.1101   -0.0736   -0.0287
+
+. 
+. 
+. * Property crime
+. ddml init partial, kfolds(5) reps(10) fcluster(statenum)
+warning - model m0 already exists
+all existing model results and variables will
+be dropped and model m0 will be re-initialized
+
+. 
+. *** add learners for E[Y|X]
+. ddml E[Y|X]: reg Dprop efaprop0 efapropbar xx* Lxx* i.year
+Learner Y1_reg added successfully.
+
+. ddml E[Y|X]: pystacked Dprop $Xp i.year || method(lassocv)
+Learner Y2_pystacked added successfully.
+
+. ddml E[Y|X]: pystacked Dprop $Xp || method(rf) ///
+>         opt(n_estimators(500) min_samples_leaf(5) random_state(720))
+Learner Y3_pystacked added successfully.
+
+. ddml E[Y|X]: pystacked Dprop $Xp || method(rf) ///
+>         opt(n_estimators(500) min_samples_leaf(20) random_state(720))
+Learner Y4_pystacked added successfully.
+
+. ddml E[Y|X]: pystacked Dprop $Xp || method(nnet) ///
+>         opt(hidden_layer_sizes(100 50 50 100) alpha(0) random_state(720) ///
+>         validation_fraction(.2) n_iter_no_change(5) max_iter(1000))
+Learner Y5_pystacked added successfully.
+
+. ddml E[Y|X]: pystacked Dprop $Xp || method(nnet) ///
+>         opt(hidden_layer_sizes(100 100 100 100) alpha(0) random_state(720) ///
+>         validation_fraction(.2) n_iter_no_change(5) max_iter(1000))     
+Learner Y6_pystacked added successfully.
+
+. 
+. *** add learners for E[D|X]
+. ddml E[D|X]: reg Daprop efaprop0 efapropbar xx* Lxx* i.year
+Learner D1_reg added successfully.
+
+. ddml E[D|X]: pystacked Daprop $Xp i.year || method(lassocv)
+Learner D2_pystacked added successfully.
+
+. ddml E[D|X]: pystacked Daprop $Xp || method(rf) ///
+>         opt(n_estimators(500) min_samples_leaf(5) random_state(720))
+Learner D3_pystacked added successfully.
+
+. ddml E[D|X]: pystacked Daprop $Xp || method(rf) ///
+>         opt(n_estimators(500) min_samples_leaf(20) random_state(720))
+Learner D4_pystacked added successfully.
+
+. ddml E[D|X]: pystacked Daprop $Xp || method(nnet) ///
+>         opt(hidden_layer_sizes(100 50 50 100) alpha(0) random_state(720) ///
+>         validation_fraction(.2) n_iter_no_change(5) max_iter(1000))
+Learner D5_pystacked added successfully.
+
+. ddml E[D|X]: pystacked Daprop $Xp || method(nnet) ///
+>         opt(hidden_layer_sizes(100 100 100 100) alpha(0) random_state(720) ///
+>         validation_fraction(.2) n_iter_no_change(5) max_iter(1000))     
+Learner D6_pystacked added successfully.
+
+. 
+. ** cross-fitting
+. ddml crossfit 
+Cross-fitting E[y|X] equation: Dprop
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting E[D|X] equation: Daprop
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+
+. ddml estimate , cluster(statenum) 
+
+
+Model:                  partial, crossfit folds k=5, resamples r=10
+Mata global (mname):    m0
+                        Folds respect clustering by statenum
+Dependent variable (Y): Dprop
+ Dprop learners:        Y1_reg Y2_pystacked Y3_pystacked Y4_pystacked Y5_pystacked Y6_pystacked
+D equations (1):        Daprop
+ Daprop learners:       D1_reg D2_pystacked D3_pystacked D4_pystacked D5_pystacked D6_pystacked
+
+DDML estimation results:
+spec  r     Y learner     D learner         b        SE 
+ mse  1  Y2_pystacked  D2_pystacked     0.006    (0.054)
+ mse  2  Y2_pystacked  D2_pystacked    -0.012    (0.059)
+ mse  3  Y2_pystacked  D2_pystacked     0.003    (0.059)
+ mse  4  Y2_pystacked  D2_pystacked     0.007    (0.056)
+ mse  5  Y2_pystacked  D2_pystacked     0.006    (0.059)
+ mse  6  Y2_pystacked  D2_pystacked     0.014    (0.058)
+ mse  7  Y2_pystacked  D2_pystacked     0.007    (0.062)
+ mse  8  Y2_pystacked  D3_pystacked    -0.004    (0.065)
+ mse  9        Y1_reg  D2_pystacked    -0.004    (0.063)
+ mse 10  Y2_pystacked  D2_pystacked    -0.005    (0.061)
+mse = minimum MSE specification for that resample.
+
+Mean/med    Y learner     D learner         b        SE 
+ mse mn     [min-mse]     [min-mse]     0.002    (0.060)
+ mse md     [min-mse]     [min-mse]     0.005    (0.061)
+
+Median over 10 min-mse resamples
+y-E[y|X]  = y-Y2_pystacked                         Number of obs   =       624
+D-E[D|X]  = D-D2_pystacked 
+                              (Std. err. adjusted for 48 clusters in statenum)
+------------------------------------------------------------------------------
+             |               Robust
+       Dprop | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+      Daprop |   .0047909   .0605124     0.08   0.937    -.1138112    .1233929
+------------------------------------------------------------------------------
+
+Summary over 10 resamples:
+       D eqn      mean       min       p25       p50       p75       max
+      Daprop      0.0019   -0.0117   -0.0040    0.0048    0.0067    0.0140
+
+. 
+. 
+. * Murder
+. ddml init partial, kfolds(5) reps(10) fcluster(statenum)
+warning - model m0 already exists
+all existing model results and variables will
+be dropped and model m0 will be re-initialized
+
+. 
+. *** add learners for E[Y|X]
+. ddml E[Y|X]: reg Dmurd efamurd0 efamurdbar xx* Lxx* i.year
+Learner Y1_reg added successfully.
+
+. ddml E[Y|X]: pystacked Dmurd $Xm i.year || method(lassocv)
+Learner Y2_pystacked added successfully.
+
+. ddml E[Y|X]: pystacked Dmurd $Xm || method(rf) ///
+>         opt(n_estimators(500) min_samples_leaf(5) random_state(720))
+Learner Y3_pystacked added successfully.
+
+. ddml E[Y|X]: pystacked Dmurd $Xm || method(rf) ///
+>         opt(n_estimators(500) min_samples_leaf(20) random_state(720))
+Learner Y4_pystacked added successfully.
+
+. ddml E[Y|X]: pystacked Dmurd $Xm || method(nnet) ///
+>         opt(hidden_layer_sizes(100 50 50 100) alpha(0) random_state(720) ///
+>         validation_fraction(.2) n_iter_no_change(5) max_iter(1000))
+Learner Y5_pystacked added successfully.
+
+. ddml E[Y|X]: pystacked Dmurd $Xm || method(nnet) ///
+>         opt(hidden_layer_sizes(100 100 100 100) alpha(0) random_state(720) ///
+>         validation_fraction(.2) n_iter_no_change(5) max_iter(1000))     
+Learner Y6_pystacked added successfully.
+
+. 
+. *** add learners for E[D|X]
+. ddml E[D|X]: reg Damurd efamurd0 efamurdbar xx* Lxx* i.year
+Learner D1_reg added successfully.
+
+. ddml E[D|X]: pystacked Damurd $Xm i.year || method(lassocv)
+Learner D2_pystacked added successfully.
+
+. ddml E[D|X]: pystacked Damurd $Xm || method(rf) ///
+>         opt(n_estimators(500) min_samples_leaf(5) random_state(720))
+Learner D3_pystacked added successfully.
+
+. ddml E[D|X]: pystacked Damurd $Xm || method(rf) ///
+>         opt(n_estimators(500) min_samples_leaf(20) random_state(720))
+Learner D4_pystacked added successfully.
+
+. ddml E[D|X]: pystacked Damurd $Xm || method(nnet) ///
+>         opt(hidden_layer_sizes(100 50 50 100) alpha(0) random_state(720) ///
+>         validation_fraction(.2) n_iter_no_change(5) max_iter(1000))
+Learner D5_pystacked added successfully.
+
+. ddml E[D|X]: pystacked Damurd $Xm || method(nnet) ///
+>         opt(hidden_layer_sizes(100 100 100 100) alpha(0) random_state(720) ///
+>         validation_fraction(.2) n_iter_no_change(5) max_iter(1000))     
+Learner D6_pystacked added successfully.
+
+. 
+. ** cross-fitting
+. ddml crossfit 
+Cross-fitting E[y|X] equation: Dmurd
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting E[D|X] equation: Damurd
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+
+. ddml estimate , cluster(statenum) 
+
+
+Model:                  partial, crossfit folds k=5, resamples r=10
+Mata global (mname):    m0
+                        Folds respect clustering by statenum
+Dependent variable (Y): Dmurd
+ Dmurd learners:        Y1_reg Y2_pystacked Y3_pystacked Y4_pystacked Y5_pystacked Y6_pystacked
+D equations (1):        Damurd
+ Damurd learners:       D1_reg D2_pystacked D3_pystacked D4_pystacked D5_pystacked D6_pystacked
+
+DDML estimation results:
+spec  r     Y learner     D learner         b        SE 
+ mse  1  Y4_pystacked  D2_pystacked     0.064    (0.169)
+ mse  2  Y4_pystacked  D2_pystacked    -0.057    (0.176)
+ mse  3        Y1_reg  D2_pystacked     0.005    (0.183)
+ mse  4  Y5_pystacked  D2_pystacked     0.012    (0.200)
+ mse  5  Y4_pystacked  D2_pystacked     0.100    (0.173)
+ mse  6  Y5_pystacked  D2_pystacked     0.019    (0.173)
+ mse  7        Y1_reg  D2_pystacked    -0.022    (0.178)
+ mse  8  Y4_pystacked  D2_pystacked    -0.018    (0.176)
+ mse  9  Y4_pystacked  D3_pystacked     0.019    (0.122)
+ mse 10  Y4_pystacked  D2_pystacked    -0.098    (0.163)
+mse = minimum MSE specification for that resample.
+
+Mean/med    Y learner     D learner         b        SE 
+ mse mn     [min-mse]     [min-mse]     0.002    (0.174)
+ mse md     [min-mse]     [min-mse]     0.008    (0.182)
+
+Median over 10 min-mse resamples
+y-E[y|X]  = y-Y4_pystacked                         Number of obs   =       624
+D-E[D|X]  = D-D2_pystacked 
+                              (Std. err. adjusted for 48 clusters in statenum)
+------------------------------------------------------------------------------
+             |               Robust
+       Dmurd | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+      Damurd |   .0084427   .1820901     0.05   0.963    -.3484473    .3653327
+------------------------------------------------------------------------------
+
+Summary over 10 resamples:
+       D eqn      mean       min       p25       p50       p75       max
+      Damurd      0.0024   -0.0984   -0.0221    0.0084    0.0190    0.1002
+
+. 
+. 
+. 
+. log close
+      name:  <unnamed>
+       log:  C:\Users\chansen1\Documents\GitHub\NW2022_1Day\Stata Code\DLfePLM.txt
+  log type:  text
+ closed on:  28 Jun 2024, 11:09:29
+----------------------------------------------------------------------------------------------------------

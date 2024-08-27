@@ -1,0 +1,378 @@
+----------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  C:\Users\chansen1\Documents\GitHub\NW2022_1Day\Stata Code\401kBoost.txt
+  log type:  text
+ opened on:  26 Jun 2024, 08:58:21
+
+. 
+. clear all
+
+.  
+. use "..\Data\sipp1991.dta", clear /* Load data. Assumes I am in my code subfolder */
+
+. 
+. *** Set seed for reproducibility
+. set seed 71423
+
+. 
+. *** Split data into a training (~80%) and test (~20%) set
+. gen trdata = runiform()
+
+. replace trdata = trdata < .8
+(9,915 real changes made)
+
+. 
+. * Sample sizes
+. count if trdata
+  7,854
+
+. count if !trdata
+  2,061
+
+. 
+. ****************************************************************************
+. *** Fit boosted regression tree models. Going to start in python
+. 
+. * Python for loops and Stata are finicky. Going to brute force 5-fold CV here
+. * rather than try to get nested for loops to work
+. *** Create fold variable for 5 fold CV
+. gen cvrand = runiform()
+
+. egen foldvar = cut(cvrand) if tr , group(5)
+(2,061 missing values generated)
+
+. replace foldvar = foldvar + 1
+(7,854 real changes made)
+
+. recode foldvar . = -99999
+(2,061 changes made to foldvar)
+
+. 
+. python:
+----------------------------------------------- python (type end to exit) --------------------------------
+>>> 
+>>> from sfi import Data
+>>> import numpy as np
+>>> from sklearn.ensemble import GradientBoostingRegressor as gbr
+>>> import matplotlib.pyplot as plt
+>>> 
+>>> # Use the sfi Data class to pull data from Stata variables into Python
+... X = np.array(Data.get("e401 age inc educ fsize marr twoearn db pira hown"))
+>>> y = np.array(Data.get("net_tfa"))
+>>> T = np.array(Data.get("trdata"))
+>>> Fvar = np.array(Data.get("foldvar"))
+>>> 
+>>> # Variable names
+... Xcols = ["e401", "age", "inc", "educ", "fsize", "marr", "twoearn", "db", "pira", "hown"]
+>>> ycols = ["net_tfa"]
+>>> 
+>>> # Get training and test data
+... Xtrain = X[T == 1 , ]
+>>> ytrain = y[T == 1]
+>>> Xtest = X[T == 0 , ]
+>>> ytest = y[T == 0 , ]
+>>> 
+>>> # Get cross-validation data
+... Xtrain1 = X[Fvar != 1, ]
+>>> Xtest1 = X[Fvar == 1, ]
+>>> ytrain1 = y[Fvar != 1]
+>>> ytest1 = y[Fvar == 1]
+>>> 
+>>> Xtrain2 = X[Fvar != 2, ]
+>>> Xtest2 = X[Fvar == 2, ]
+>>> ytrain2 = y[Fvar != 2]
+>>> ytest2 = y[Fvar == 2]
+>>> 
+>>> Xtrain3 = X[Fvar != 3, ]
+>>> Xtest3 = X[Fvar == 3, ]
+>>> ytrain3 = y[Fvar != 3]
+>>> ytest3 = y[Fvar == 3]
+>>> 
+>>> Xtrain4 = X[Fvar != 4, ]
+>>> Xtest4 = X[Fvar == 4, ]
+>>> ytrain4 = y[Fvar != 4]
+>>> ytest4 = y[Fvar == 4]
+>>> 
+>>> Xtrain5 = X[Fvar != 5, ]
+>>> Xtest5 = X[Fvar == 5, ]
+>>> ytrain5 = y[Fvar != 5]
+>>> ytest5 = y[Fvar == 5]
+>>> 
+>>> # Get constant fit for comparison
+... ymean = np.mean(ytrain)
+>>> intss = np.mean(np.square(ytrain - ymean))
+>>> oostss = np.mean(np.square(ytest - ymean))
+>>> 
+>>> # gradient boosting with 1000 boosting iteration but other default tuning choices
+... reg1 = gbr(n_estimators = 1000)
+>>> reg1.fit(Xtrain, ytrain)
+GradientBoostingRegressor(n_estimators=1000)
+>>> 
+>>> testmse1 = np.zeros((1000,), dtype=np.float64)
+>>> for i, y_pred in enumerate(reg1.staged_predict(Xtest)): testmse1[i] = np.mean(np.square(ytest-y_pred))
+>>> 
+>>> trainmse1 = np.zeros((1000,), dtype=np.float64)
+>>> for i, y_pred in enumerate(reg1.staged_predict(Xtrain)): trainmse1[i] = np.mean(np.square(ytrain-y_pre
+> d))
+>>> 
+>>> inR2 = 1-trainmse1/intss
+>>> outR2 = 1-testmse1/oostss
+>>> 
+>>> 'Best OOS Rsq {:.3F}'.format(np.max(outR2))
+'Best OOS Rsq 0.184'
+>>> 
+>>> # Do cross validation - code here could definitely be improved
+... cvreg1 = gbr(n_estimators = 1000)
+>>> cvreg1.fit(Xtrain1, ytrain1)
+GradientBoostingRegressor(n_estimators=1000)
+>>> 
+>>> cvsse = np.zeros((1000,), dtype=np.float64)
+>>> for i, y_pred in enumerate(cvreg1.staged_predict(Xtest1)): cvsse[i] = np.sum(np.square(ytest1-y_pred))
+>>> 
+>>> cvreg2 = gbr(n_estimators = 1000)
+>>> cvreg2.fit(Xtrain2, ytrain2)
+GradientBoostingRegressor(n_estimators=1000)
+>>> for i, y_pred in enumerate(cvreg2.staged_predict(Xtest2)): cvsse[i] = cvsse[i] + np.sum(np.square(ytes
+> t2-y_pred))
+>>> 
+>>> cvreg3 = gbr(n_estimators = 1000)
+>>> cvreg3.fit(Xtrain3, ytrain3)
+GradientBoostingRegressor(n_estimators=1000)
+>>> for i, y_pred in enumerate(cvreg3.staged_predict(Xtest3)): cvsse[i] = cvsse[i] + np.sum(np.square(ytes
+> t3-y_pred))
+>>> 
+>>> cvreg4 = gbr(n_estimators = 1000)
+>>> cvreg4.fit(Xtrain4, ytrain4)
+GradientBoostingRegressor(n_estimators=1000)
+>>> for i, y_pred in enumerate(cvreg4.staged_predict(Xtest4)): cvsse[i] = cvsse[i] + np.sum(np.square(ytes
+> t4-y_pred))
+>>> 
+>>> cvreg5 = gbr(n_estimators = 1000)
+>>> cvreg5.fit(Xtrain5, ytrain5)
+GradientBoostingRegressor(n_estimators=1000)
+>>> for i, y_pred in enumerate(cvreg5.staged_predict(Xtest5)): cvsse[i] = cvsse[i] + np.sum(np.square(ytes
+> t5-y_pred))
+>>> 
+>>> cvmse = cvsse/Xtrain.shape[0]
+>>> cvR2 = 1 - cvmse/intss
+>>> 
+>>> 'CV MSE min B {}'.format(np.argmax(cvR2))
+'CV MSE min B 44'
+>>> 'Validation Rsq at CV B = {:.3F}'.format(outR2[np.argmax(cvR2)])
+'Validation Rsq at CV B = 0.176'
+>>> 
+>>> iter = range(1,1001)
+>>> 
+>>> fig, ax = plt.subplots()
+>>> ax.plot(iter, inR2, color = "red", label = "In sample Rsq")
+[<matplotlib.lines.Line2D object at 0x000000001651A290>]
+>>> ax.plot(iter, outR2, color = "blue", label = "Validation Rsq")
+[<matplotlib.lines.Line2D object at 0x0000000019C923D0>]
+>>> ax.plot(iter, cvR2, color = "green", label = "CV Rsq")
+[<matplotlib.lines.Line2D object at 0x0000000019C92CD0>]
+>>> ax.legend()
+<matplotlib.legend.Legend object at 0x0000000016BB7710>
+>>> ax.set_xlabel("Boosting Iteration")
+Text(0.5, 0, 'Boosting Iteration')
+>>> fig.savefig('..\\Slides\\figures\\boost_iterations.pdf')
+>>> 
+>>> # Implement early stopping. Use default tolerance of 1e-4. Monitor performace 
+... # on 20% validation sample. Stop if 10 iterations of no improvement. All
+... # other parameters at default.
+... esreg = gbr(validation_fraction = .2, n_iter_no_change = 10, random_state = 720)
+>>> esreg.fit(Xtrain, ytrain)
+GradientBoostingRegressor(n_iter_no_change=10, random_state=720,
+                          validation_fraction=0.2)
+>>> 
+>>> 'Number of iterations: {}'.format(esreg.n_estimators_)
+'Number of iterations: 78'
+>>> 
+>>> # No easy way to see what the validation sample is or performance on it
+... # Just look at performance in the hold out validation sample
+>>> testmse_es = np.zeros((esreg.n_estimators_,), dtype=np.float64)
+>>> for i, y_pred in enumerate(esreg.staged_predict(Xtest)): testmse_es[i] = np.mean(np.square(ytest-y_pre
+> d))
+>>> 
+>>> esoutR2 = 1-testmse_es/oostss
+>>> 
+>>> 'Early Stopping Validation Rsq = {:.3F}'.format(esoutR2[-1])
+'Early Stopping Validation Rsq = 0.159'
+>>> 
+>>> esiter = range(1,esreg.n_estimators_+1)
+>>> 
+>>> fig, ax = plt.subplots()
+>>> ax.plot(iter, inR2, color = "red", label = "In sample Rsq")
+[<matplotlib.lines.Line2D object at 0x000000001A221750>]
+>>> ax.plot(iter, outR2, color = "blue", label = "Validation Rsq")
+[<matplotlib.lines.Line2D object at 0x000000001A1E4390>]
+>>> ax.plot(iter, cvR2, color = "green", label = "CV Rsq")
+[<matplotlib.lines.Line2D object at 0x000000001A90C510>]
+>>> ax.plot(esiter, esoutR2, color = "magenta", label = "Validation Rsq - Early")
+[<matplotlib.lines.Line2D object at 0x000000001A90CFD0>]
+>>> ax.legend()
+<matplotlib.legend.Legend object at 0x000000001A20C850>
+>>> ax.set_xlabel("Boosting Iteration")
+Text(0.5, 0, 'Boosting Iteration')
+>>> fig.savefig('..\\Slides\\figures\\es_iterations.pdf')
+>>> 
+>>> end
+----------------------------------------------------------------------------------------------------------
+
+. 
+. ***************************************************************************
+. *** Use pystacked to look at performance under several additional choices
+. 
+. recode foldvar -99999 = .
+(2,061 changes made to foldvar)
+
+. 
+. pystacked net_tfa e401 age inc educ fsize marr twoearn db pira hown || ///
+>         m(gradboost) opt(learning_rate(.3) n_estimators(500) max_depth(6) /// 
+>                 random_state(720) min_samples_leaf(20)) || ///
+>         m(gradboost) opt(learning_rate(.3) max_depth(6) random_state(720) ///
+>                 validation_fraction(.2) n_iter_no_change(2) min_samples_leaf(20)) || ///
+>         m(gradboost) opt(learning_rate(.1) n_estimators(500) max_depth(6) ///
+>                 random_state(720) min_samples_leaf(20)) || ///
+>         m(gradboost) opt(learning_rate(.1) max_depth(6) random_state(720) ///
+>                 validation_fraction(.2) n_iter_no_change(2) min_samples_leaf(20)) || ///
+>         m(gradboost) opt(learning_rate(.1) max_depth(5) random_state(720) ///
+>                 validation_fraction(.2) n_iter_no_change(2) min_samples_leaf(20)) || ///
+>         m(gradboost) opt(learning_rate(.1) max_depth(4) random_state(720) ///
+>                 validation_fraction(.2) n_iter_no_change(2) min_samples_leaf(20)) || ///
+>         m(gradboost) opt(learning_rate(.1) max_depth(3) random_state(720) ///
+>                 validation_fraction(.2) n_iter_no_change(2) min_samples_leaf(20)) || ///
+>         m(gradboost) opt(learning_rate(.1) max_depth(2) random_state(720) ///
+>                 validation_fraction(.2) n_iter_no_change(2) min_samples_leaf(20)) || ///
+>         m(gradboost) opt(learning_rate(.01) max_depth(6) random_state(720) ///
+>                 validation_fraction(.2) n_iter_no_change(10) min_samples_leaf(20)) || ///
+>         m(gradboost) opt(learning_rate(.01) max_depth(5) random_state(720) ///
+>                 validation_fraction(.2) n_iter_no_change(10) min_samples_leaf(20)) || ///
+>         m(gradboost) opt(learning_rate(.01) max_depth(4) random_state(720) ///
+>                 validation_fraction(.2) n_iter_no_change(10) min_samples_leaf(20)) || ///
+>         m(gradboost) opt(learning_rate(.01) max_depth(3) random_state(720) ///
+>                 validation_fraction(.2) n_iter_no_change(10) min_samples_leaf(20)) || ///
+>         m(gradboost) opt(learning_rate(.01) max_depth(2) random_state(720) ///
+>                 validation_fraction(.2) n_iter_no_change(10) min_samples_leaf(20)) || ///
+>         if trdata , type(reg) foldvar(foldvar)
+(2,061 missing values generated)
+
+Stacking weights:
+---------------------------------------
+  Method         |      Weight
+-----------------+---------------------
+  gradboost      |      0.0000000
+  gradboost      |      0.0000000
+  gradboost      |      0.2970317
+  gradboost      |      0.0000000
+  gradboost      |      0.0688800
+  gradboost      |      0.0000000
+  gradboost      |      0.5243597
+  gradboost      |      0.0000000
+  gradboost      |      0.1520965
+  gradboost      |      0.0000000
+  gradboost      |      0.0000000
+  gradboost      |      0.0000000
+  gradboost      |      0.0000000
+
+. 
+. pystacked , table holdout
+Number of holdout observations: 2061
+
+RMSPE: In-Sample, CV, Holdout
+-----------------------------------------------------------------
+  Method         | Weight   In-Sample        CV         Holdout
+-----------------+-----------------------------------------------
+  STACKING       |    .       4.5e+04           .       6.6e+04
+  gradboost      | 0.000      2.6e+04      5.9e+04      7.1e+04
+  gradboost      | 0.000      4.7e+04      5.3e+04      6.5e+04
+  gradboost      | 0.297      3.7e+04      5.4e+04      6.9e+04
+  gradboost      | 0.000      4.7e+04      5.3e+04      6.5e+04
+  gradboost      | 0.069      4.8e+04      5.2e+04      6.5e+04
+  gradboost      | 0.000      4.8e+04      5.2e+04      6.6e+04
+  gradboost      | 0.524      5.0e+04      5.2e+04      6.6e+04
+  gradboost      | 0.000      5.0e+04      5.3e+04      6.6e+04
+  gradboost      | 0.152      5.2e+04      5.3e+04      6.7e+04
+  gradboost      | 0.000      5.2e+04      5.4e+04      6.7e+04
+  gradboost      | 0.000      5.3e+04      5.4e+04      6.7e+04
+  gradboost      | 0.000      5.3e+04      5.4e+04      6.8e+04
+  gradboost      | 0.000      5.4e+04      5.5e+04      6.8e+04
+
+. 
+. matrix list r(m)
+
+r(m)[14,3]
+            RMSPE_in   RMSPE_cv  RMSPE_out
+ STACKING  44789.318          .  65855.866
+gradboost  25528.328  59020.036  71184.195
+gradboost  46816.107  52541.337  65396.368
+gradboost  36509.625  54218.371  68610.268
+gradboost   47118.98  52552.372  65402.385
+gradboost   48005.93  52344.737  65392.508
+gradboost    48352.7  52369.538  65548.112
+gradboost  49941.231  52163.745  66148.428
+gradboost  49607.447  52708.711  66487.638
+gradboost  51614.703  53467.075  66716.717
+gradboost  52088.737  53631.916  66965.088
+gradboost  52694.908  53819.876  67287.585
+gradboost  53296.979  54197.389  67731.049
+gradboost  54290.887  55020.508  68356.541
+
+. 
+. predict yhatcv , basexb cv
+
+. predict yhat , basexb
+
+. 
+. *** Fit constant model for reference later
+. qui reg net_tfa if trdata == 1
+
+. predict yhat_c 
+(option xb assumed; fitted values)
+
+. gen r_mean2 = (net_tfa - yhat_c)^2
+
+. qui sum r_mean2 if trdata == 1
+
+. local tssIn = r(mean)
+
+. qui sum r_mean2 if trdata == 0
+
+. local tssOut = r(mean)
+
+. 
+. * Tried 13 learners
+. forvalues i = 1/13 {
+  2.         qui gen rcv`i' = (net_tfa - yhatcv`i')^2
+  3.         qui gen r`i' = (net_tfa - yhat`i')^2
+  4.         qui sum rcv`i' if trdata == 1
+  5.         local esscv`i' = r(mean)
+  6.         qui sum r`i' if trdata == 1
+  7.         local essIn`i' = r(mean)
+  8.         qui sum r`i' if trdata == 0
+  9.         local essOut`i' = r(mean)
+ 10.         local r2cv`i' = 1-(`esscv`i''/`tssIn')
+ 11.         local r2In`i' = 1-(`essIn`i''/`tssIn')
+ 12.         local r2Out`i' = 1-(`essOut`i''/`tssOut')
+ 13.         display "R^2 (in/CV/out) " `i' " = " `r2In`i'' " & " `r2cv`i'' " & " `r2Out`i'' 
+ 14. }
+R^2 (in/CV/out) 1 = .82296434 & .05373028 & .05851915
+R^2 (in/CV/out) 2 = .40460305 & .25007429 & .20539448
+R^2 (in/CV/out) 3 = .63789814 & .20143746 & .12537366
+R^2 (in/CV/out) 4 = .3968744 & .24975925 & .20524823
+R^2 (in/CV/out) 5 = .37395468 & .25567596 & .20548827
+R^2 (in/CV/out) 6 = .36487754 & .25497046 & .20170262
+R^2 (in/CV/out) 7 = .32246071 & .26081435 & .18701341
+R^2 (in/CV/out) 8 = .33148716 & .24528879 & .17865401
+R^2 (in/CV/out) 9 = .27629285 & .22341527 & .17298449
+R^2 (in/CV/out) 10 = .26293861 & .21861938 & .16681545
+R^2 (in/CV/out) 11 = .24568403 & .21313289 & .15877107
+R^2 (in/CV/out) 12 = .22834851 & .2020554 & .14764614
+R^2 (in/CV/out) 13 = .19929991 & .17763391 & .1318306
+
+.         
+. log close
+      name:  <unnamed>
+       log:  C:\Users\chansen1\Documents\GitHub\NW2022_1Day\Stata Code\401kBoost.txt
+  log type:  text
+ closed on:  26 Jun 2024, 08:59:27
+----------------------------------------------------------------------------------------------------------

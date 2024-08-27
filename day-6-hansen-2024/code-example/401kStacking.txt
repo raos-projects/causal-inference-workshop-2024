@@ -1,0 +1,366 @@
+----------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  C:\Users\chansen1\Documents\GitHub\NW2022_1Day\Stata Code\401kStacking.txt
+  log type:  text
+ opened on:  26 Jun 2024, 13:02:35
+
+. 
+. clear all
+
+.  
+. use "..\Data\sipp1991.dta", clear /* Load data. Assumes I am in my code subfolder */
+
+. 
+. *** Set seed for reproducibility
+. set seed 71423
+
+. 
+. *** Split data into a training (~80%) and test (~20%) set
+. gen trdata = runiform()
+
+. replace trdata = trdata < .8
+(9,915 real changes made)
+
+. 
+. * Sample sizes
+. count if trdata
+  7,854
+
+. count if !trdata
+  2,061
+
+. 
+. * Normalize inc,age,fsize,educ 
+. replace age = age/64
+variable age was byte now float
+(9,915 real changes made)
+
+. replace inc = inc/250000
+(9,912 real changes made)
+
+. replace fsize = fsize/13
+variable fsize was byte now float
+(9,915 real changes made)
+
+. replace educ = educ/18
+variable educ was byte now float
+(9,915 real changes made)
+
+. 
+. * Create polynomials
+. forvalues i = 2/6 {
+  2.         gen age`i' = age^`i' 
+  3. }
+
+. 
+. forvalues i = 2/8 {
+  2.         gen inc`i' = inc^`i'
+  3. }
+
+. 
+. forvalues i = 2/4 {
+  2.         gen educ`i' = educ^`i'
+  3. }
+
+. 
+. gen fsize2 = fsize^2
+
+. 
+. **************************************************************************
+. * Stacking over 10 learners
+. 
+. *** Create fold variable for 5 fold CV
+. * Don't need to do this as pystacked does CV internally, 
+. * but want to use the same folds as in previous examples
+. gen cvrand = runiform()
+
+. egen foldvar = cut(cvrand) if trdata , group(5)
+(2,061 missing values generated)
+
+. replace foldvar = foldvar + 1
+(7,854 real changes made)
+
+. 
+. *** pystacked
+. * OLS with baseline variables
+. * OLS with polynomials and interactions
+. * lasso with polynomials and interactions
+. pystacked net_tfa e401 age inc educ fsize marr twoearn db pira hown || ///
+>         m(ols) || ///
+>         m(ols) ///
+>         xvars(c.(e401 age age2 age3 age4 age5 age6 inc inc2 inc3 inc4 inc5 inc6 inc7 ///
+>         inc8 educ educ2 educ3 educ4 fsize fsize2 marr twoearn db pira hown)## ///
+>         c.(e401 age age2 age3 age4 age5 age6 inc inc2 inc3 inc4 inc5 inc6 inc7 ///
+>         inc8 educ educ2 educ3 educ4 fsize fsize2 marr twoearn db pira hown)) || ///
+>         m(lassocv) ///
+>         xvars(c.(e401 age age2 age3 age4 age5 age6 inc inc2 inc3 inc4 inc5 inc6 inc7 ///
+>         inc8 educ educ2 educ3 educ4 fsize fsize2 marr twoearn db pira hown)## ///
+>         c.(e401 age age2 age3 age4 age5 age6 inc inc2 inc3 inc4 inc5 inc6 inc7 ///
+>         inc8 educ educ2 educ3 educ4 fsize fsize2 marr twoearn db pira hown)) || ///
+>         m(ridgecv) ///
+>         xvars(c.(e401 age age2 age3 age4 age5 age6 inc inc2 inc3 inc4 inc5 inc6 inc7 ///
+>         inc8 educ educ2 educ3 educ4 fsize fsize2 marr twoearn db pira hown)## ///
+>         c.(e401 age age2 age3 age4 age5 age6 inc inc2 inc3 inc4 inc5 inc6 inc7 ///
+>         inc8 educ educ2 educ3 educ4 fsize fsize2 marr twoearn db pira hown)) || ///
+>         m(rf) opt(n_estimators(500) min_samples_leaf(20) random_state(720)) || ///
+>         m(gradboost) opt(learning_rate(.1) max_depth(5) random_state(720) ///
+>                 validation_fraction(.2) n_iter_no_change(2) min_samples_leaf(20)) || ///
+>         m(gradboost) opt(learning_rate(.1) max_depth(3) random_state(720) ///
+>                 validation_fraction(.2) n_iter_no_change(2) min_samples_leaf(20)) || ///
+>         m(nnet) opt(hidden_layer_sizes(50 10 50) alpha(0) random_state(720)) || ///
+>         m(nnet) opt(hidden_layer_sizes(50 50 50 50) alpha(0) random_state(720)) || ///
+>         m(nnet) opt(hidden_layer_sizes(100 100 100 100 100) ///
+>                 alpha(0) random_state(720)) || ///
+>         if trdata , type(reg) foldvar(foldvar)
+(2,061 missing values generated)
+note: age3 omitted because of collinearity.
+note: age4 omitted because of collinearity.
+note: age5 omitted because of collinearity.
+note: age6 omitted because of collinearity.
+note: inc2 omitted because of collinearity.
+note: inc4 omitted because of collinearity.
+note: inc5 omitted because of collinearity.
+note: inc6 omitted because of collinearity.
+note: inc7 omitted because of collinearity.
+note: inc8 omitted because of collinearity.
+note: educ2 omitted because of collinearity.
+note: educ4 omitted because of collinearity.
+note: fsize2 omitted because of collinearity.
+note: __000003 omitted because of collinearity.
+note: __000007 omitted because of collinearity.
+note: __00000F omitted because of collinearity.
+note: __00000T omitted because of collinearity.
+note: __00000U omitted because of collinearity.
+note: __00000W omitted because of collinearity.
+note: __00000X omitted because of collinearity.
+note: __00000Y omitted because of collinearity.
+note: __000014 omitted because of collinearity.
+note: __000015 omitted because of collinearity.
+note: __00001I omitted because of collinearity.
+note: __00001J omitted because of collinearity.
+note: __00001K omitted because of collinearity.
+note: __00001L omitted because of collinearity.
+note: __00001M omitted because of collinearity.
+note: __00001P omitted because of collinearity.
+note: __00001R omitted because of collinearity.
+note: __00001S omitted because of collinearity.
+note: __00001U omitted because of collinearity.
+note: __00001W omitted because of collinearity.
+note: __000020 omitted because of collinearity.
+note: __000026 omitted because of collinearity.
+note: __000027 omitted because of collinearity.
+note: __000028 omitted because of collinearity.
+note: __000029 omitted because of collinearity.
+note: __00002A omitted because of collinearity.
+note: __00002B omitted because of collinearity.
+note: __00002D omitted because of collinearity.
+note: __00002E omitted because of collinearity.
+note: __00002F omitted because of collinearity.
+note: __00002G omitted because of collinearity.
+note: __00002H omitted because of collinearity.
+note: __00002I omitted because of collinearity.
+note: __00002J omitted because of collinearity.
+note: __00002K omitted because of collinearity.
+note: __00002Q omitted because of collinearity.
+note: __00002S omitted because of collinearity.
+note: __00002U omitted because of collinearity.
+note: __00002V omitted because of collinearity.
+note: __00002Y omitted because of collinearity.
+note: __000031 omitted because of collinearity.
+note: __000032 omitted because of collinearity.
+note: __000033 omitted because of collinearity.
+note: __000036 omitted because of collinearity.
+note: __000037 omitted because of collinearity.
+note: __000038 omitted because of collinearity.
+note: __000039 omitted because of collinearity.
+note: __00003A omitted because of collinearity.
+note: __00003B omitted because of collinearity.
+note: __00003D omitted because of collinearity.
+note: __00003G omitted because of collinearity.
+note: __00003I omitted because of collinearity.
+note: __00003K omitted because of collinearity.
+note: __00003L omitted because of collinearity.
+note: __00003M omitted because of collinearity.
+note: __00003N omitted because of collinearity.
+note: __00003O omitted because of collinearity.
+note: __00003P omitted because of collinearity.
+note: __00003Q omitted because of collinearity.
+note: __000045 omitted because of collinearity.
+note: __000047 omitted because of collinearity.
+note: __00004L omitted because of collinearity.
+note: __00004O omitted because of collinearity.
+note: __00004P omitted because of collinearity.
+note: __00004Q omitted because of collinearity.
+note: __00004R omitted because of collinearity.
+note: __000053 omitted because of collinearity.
+note: __000054 omitted because of collinearity.
+note: __000056 omitted because of collinearity.
+note: __000057 omitted because of collinearity.
+note: __000058 omitted because of collinearity.
+note: __000059 omitted because of collinearity.
+note: __00005L omitted because of collinearity.
+note: __00005M omitted because of collinearity.
+note: __00005N omitted because of collinearity.
+note: __00005O omitted because of collinearity.
+note: __00005P omitted because of collinearity.
+note: __00005Q omitted because of collinearity.
+note: __000062 omitted because of collinearity.
+note: __000063 omitted because of collinearity.
+note: __000064 omitted because of collinearity.
+note: __000065 omitted because of collinearity.
+note: __000066 omitted because of collinearity.
+note: __000068 omitted because of collinearity.
+note: __00006J omitted because of collinearity.
+note: __00006K omitted because of collinearity.
+note: __00006N omitted because of collinearity.
+note: __00006O omitted because of collinearity.
+note: __00006X omitted because of collinearity.
+note: __00006Y omitted because of collinearity.
+note: __00006Z omitted because of collinearity.
+note: __000070 omitted because of collinearity.
+note: __000073 omitted because of collinearity.
+note: __000076 omitted because of collinearity.
+note: __000077 omitted because of collinearity.
+note: __000078 omitted because of collinearity.
+note: __00007A omitted because of collinearity.
+note: __00007B omitted because of collinearity.
+note: __00007C omitted because of collinearity.
+note: __00007E omitted because of collinearity.
+note: __00007F omitted because of collinearity.
+note: __00007H omitted because of collinearity.
+note: __00007I omitted because of collinearity.
+note: __00007M omitted because of collinearity.
+note: __00007P omitted because of collinearity.
+note: __00007Q omitted because of collinearity.
+note: __00007V omitted because of collinearity.
+note: __000081 omitted because of collinearity.
+note: __000082 omitted because of collinearity.
+note: __00008B omitted because of collinearity.
+note: __00008C omitted because of collinearity.
+note: __00008D omitted because of collinearity.
+note: __00008L omitted because of collinearity.
+note: __00009F omitted because of collinearity.
+note: __00009K omitted because of collinearity.
+note: __00009O omitted because of collinearity.
+note: __00009R omitted because of collinearity.
+note: __00009T omitted because of collinearity.
+
+Stacking weights:
+---------------------------------------
+  Method         |      Weight
+-----------------+---------------------
+  ols            |      0.0000000
+  ols            |      0.0009025
+  lassocv        |      0.0000000
+  ridgecv        |      0.2240662
+  rf             |      0.0000000
+  gradboost      |      0.0000000
+  gradboost      |      0.0446939
+  nnet           |      0.2796516
+  nnet           |      0.0000000
+  nnet           |      0.4958309
+
+. 
+. pystacked , table holdout
+Number of holdout observations: 2061
+
+RMSPE: In-Sample, CV, Holdout
+-----------------------------------------------------------------
+  Method         | Weight   In-Sample        CV         Holdout
+-----------------+-----------------------------------------------
+  STACKING       |    .       4.6e+04           .       6.5e+04
+  ols            | 0.000      5.3e+04      5.3e+04      6.6e+04
+  ols            | 0.001      4.2e+04      1.8e+07      7.0e+04
+  lassocv        | 0.000      4.8e+04      5.5e+04      6.6e+04
+  ridgecv        | 0.224      4.9e+04      6.4e+04      6.6e+04
+  rf             | 0.000      4.9e+04      5.2e+04      6.5e+04
+  gradboost      | 0.000      4.8e+04      5.2e+04      6.5e+04
+  gradboost      | 0.045      5.0e+04      5.2e+04      6.6e+04
+  nnet           | 0.280      5.1e+04      5.2e+04      6.4e+04
+  nnet           | 0.000      4.6e+04      5.1e+04      6.6e+04
+  nnet           | 0.496      4.5e+04      5.0e+04      6.7e+04
+
+. 
+. matrix list r(m)
+
+r(m)[11,3]
+            RMSPE_in   RMSPE_cv  RMSPE_out
+ STACKING  46213.051          .  65102.217
+      ols  52728.672  52976.771  65837.773
+      ols  42355.372   17700570  70117.848
+  lassocv  47537.068  55076.416  65637.451
+  ridgecv  48881.816  64493.378  65804.475
+       rf  49098.275  52323.504  64675.568
+gradboost  48005.874  52344.528  65392.508
+gradboost  49941.231  52163.745  66148.225
+     nnet  50938.284  51748.745  64268.439
+     nnet  46199.991  51189.997  66090.982
+     nnet   45004.98  50027.144  66630.442
+
+. 
+. predict yhatcv0 
+
+. predict yhat0
+
+. predict yhatcv , basexb cv
+
+. predict yhat , basexb
+
+. 
+. *** Fit constant model for reference later
+. qui reg net_tfa if trdata == 1
+
+. predict yhat_c 
+(option xb assumed; fitted values)
+
+. gen r_mean2 = (net_tfa - yhat_c)^2
+
+. qui sum r_mean2 if trdata == 1
+
+. local tssIn = r(mean)
+
+. display `RTSS (in) = ' sqrt(`tssIn')
+60672.515
+
+. qui sum r_mean2 if trdata == 0
+
+. local tssOut = r(mean)
+
+. display `RTSS (out) = ' sqrt(`tssOut')
+73363.127
+
+. 
+. * Tried stacking + 10 learners
+. forvalues i = 0/10 {
+  2.         qui gen rcv`i' = (net_tfa - yhatcv`i')^2
+  3.         qui gen r`i' = (net_tfa - yhat`i')^2
+  4.         qui sum rcv`i' if trdata == 1
+  5.         local esscv`i' = r(mean)
+  6.         qui sum r`i' if trdata == 1
+  7.         local essIn`i' = r(mean)
+  8.         qui sum r`i' if trdata == 0
+  9.         local essOut`i' = r(mean)
+ 10.         local r2cv`i' = 1-(`esscv`i''/`tssIn')
+ 11.         local r2In`i' = 1-(`essIn`i''/`tssIn')
+ 12.         local r2Out`i' = 1-(`essOut`i''/`tssOut')
+ 13.         display "R^2 (in/CV/out) " `i' " = " `r2In`i'' " & " `r2cv`i'' " & " `r2Out`i'' 
+ 14. }
+R^2 (in/CV/out) 0 = .41984333 & .41984333 & .21252662
+R^2 (in/CV/out) 1 = .24471706 & .23759284 & .19463161
+R^2 (in/CV/out) 2 = .51265894 & -85110.939 & .08651487
+R^2 (in/CV/out) 3 = .38612382 & .1759618 & .19952507
+R^2 (in/CV/out) 4 = .35090141 & -.12991624 & .19544604
+R^2 (in/CV/out) 5 = .34513999 & .25627968 & .22281424
+R^2 (in/CV/out) 6 = .37395612 & .25568191 & .20548827
+R^2 (in/CV/out) 7 = .32246071 & .26081435 & .1870184
+R^2 (in/CV/out) 8 = .29513716 & .27252906 & .23256813
+R^2 (in/CV/out) 9 = .42017118 & .28815374 & .18842486
+R^2 (in/CV/out) 10 = .449779 & .32012758 & .175122
+
+.         
+. log close
+      name:  <unnamed>
+       log:  C:\Users\chansen1\Documents\GitHub\NW2022_1Day\Stata Code\401kStacking.txt
+  log type:  text
+ closed on:  26 Jun 2024, 13:06:14
+----------------------------------------------------------------------------------------------------------

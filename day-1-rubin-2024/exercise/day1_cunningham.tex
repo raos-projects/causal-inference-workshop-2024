@@ -1,0 +1,63 @@
+\documentclass{article}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage[a4paper,margin=1in]{geometry}
+
+\title{Design Trumps Analysis: Propensity Score Weighting Analysis}
+\author{Scott Cunningham}
+\date{}
+
+\begin{document}
+
+
+\maketitle
+
+Recall Don and Bernie and Brigham all saying the importance of the "design" stage.  Recall Rubin's article from 2008, ``design trumps analysis''.  And it may seem abstract what that means, we will illustrate some of it here because none of what we will do now will look at the outcomes at all.  We will only be focused on reconstructing the hypothetical experiment through reweighting the variables.  The outcome will be mortality and the treatment will be health insurance treatment status.  The context are near elderly individuals in a widely used retirement survey.  The author is our leader Bernie Black with Espin-Sanchez, French, and Litvak in the 2017 \emph{Journal of Health Economics}, ``The Long-term Effect of Health Insurance on Near-Elderly Health and Mortality''. 
+
+They wanted to estimate the average effect of health insurance on near elderly (50-61yo at start of panel) mortality using propensity score methods.  For this design stage, we are going to focus on inverse probability weighting (IPW) because it's an easy way to reweight.  Remember, propensity scores can be used for estimating treatment effects using matching or reweighting, but that's the analysis stage.  We are in the design stage, so we will reweight since we don't have the outcome data in this stage.
+
+First, let's look at the fact that the treatment and control group is imbalanced in Table 1. Note races are non-hispanic white, non-hispanic black, hispanic and non-hispanic other for race 1-4.  Others are baseline variables that should be self-explanatory.  And there is imbalance because the means are different.  We could do t-tests on the difference in means, but I don't do that here. But in Bernie's do file, he does do that, and I leave it to you to update the \texttt{Day1\_Cunningham.do} file according to Bernie's if you want to see how to do that.  But for this document, I am just showing a simple difference in means for the treatment and control group.  Age is around the same, but that's expected as it's a panel of people the same age.  But beyond that we see differences for many things, especially whether they are employed.  Note that our treatment group is that they don't have insurance, but the control is they do, which is why we see the treatment group having lower employment. 
+
+Next we estimate the propensity score using logit.  This is a two step procedure.  First estimate the propensity score:
+
+\begin{equation}
+Pr(D_i = 1 | X_i) = \frac{e^{X_i'\beta}}{1 + e^{X_i'\beta}}
+\end{equation}
+
+The using the fitted values from the logit, predict the conditional probability of treat which we will call $\widehat{\rho(x)}$.  And notice that the interpretation of this, first of all, is a conditional probability of treatment.  Given values of $X$, what percent of the population is in the treatment group \emph{of units with those values}.  It approximates this value, but in the end we have collapsed the information in our $X$ variables into a single dimension scalar, the propensity score.  Note that we estimated the propensity score; we do not know the true propensity score except in a randomized experiment, which is not happening here.
+
+We can then in Figure~\ref{fig:pscore} look at the distribution of the propensity score by treatment category.  That's customarily done in a histogram.  It smooths over all this using the kernel density, though, which I find can hide a little.  But we that there.
+
+Now we are going to reweight the variables using the inverse probability weights.  You weight the treated units by $IPW_i = \frac{1}{P(X_i)}$ and you weight $j$ control units by $IPW_j = \frac{1}{1 - P(X_j)}$.  I show that in Table 2 and then have a love plot in Figure~\ref{fig:loveplot}.  Note that this contains both table 1 and table 2 which is nice.  
+
+
+\newpage
+\section{Summary Statistics Before Weighting}
+\input{table1.tex}
+
+
+\newpage
+\section{Propensity Score Distribution}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{pscore_distribution.png}
+    \caption{Distribution of Propensity Scores}
+    \label{fig:pscore}
+\end{figure}
+
+\newpage
+\section{Summary Statistics After Weighting}
+\input{table2.tex}
+
+\newpage
+\section{Balance Before and After Weighting}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{balance_plot.png}
+    \caption{Standardized Differences Before and After Weighting}
+    \label{fig:loveplot}
+\end{figure}
+
+\end{document}

@@ -1,0 +1,254 @@
+----------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  C:\Users\chansen1\Documents\GitHub\NW2022_1Day\Stata Code\401kLATE.txt
+  log type:  text
+ opened on:  27 Jun 2024, 18:08:51
+
+. 
+. clear all
+
+. 
+. timer on 1
+
+.  
+. * Load data. Assumes I am in my code subfolder *
+. use "..\Data\sipp1991.dta", clear 
+
+. 
+. *** Set seed for reproducibility
+. set seed 71423
+
+. 
+. * Normalize inc,age,fsize,educ 
+. replace age = age/64
+variable age was byte now float
+(9,915 real changes made)
+
+. replace inc = inc/250000
+(9,912 real changes made)
+
+. replace fsize = fsize/13
+variable fsize was byte now float
+(9,915 real changes made)
+
+. replace educ = educ/18
+variable educ was byte now float
+(9,915 real changes made)
+
+. 
+. * Create polynomials
+. forvalues i = 2/6 {
+  2.         gen age`i' = age^`i' 
+  3. }
+
+. 
+. forvalues i = 2/8 {
+  2.         gen inc`i' = inc^`i'
+  3. }
+
+. 
+. forvalues i = 2/4 {
+  2.         gen educ`i' = educ^`i'
+  3. }
+
+. 
+. gen fsize2 = fsize^2
+
+. 
+. *** Define some macros for our variables
+. global Y net_tfa
+
+. global X age inc educ fsize marr twoearn db pira hown
+
+. global Xpoly age age2 age3 age4 age5 age6 inc inc2 inc3 inc4 inc5 inc6 inc7 ///
+>         inc8 educ educ2 educ3 educ4 fsize fsize2 marr twoearn db pira hown
+
+. global Z e401
+
+. global D p401
+
+. 
+. *** Call ddml package and tell it we want to estimate the interactive model (heterogeneous effects)
+. *** using cross-fitting with five folds and with ten different random splits
+. *** of five folds
+. 
+. ddml init interactiveiv, kfolds(5) reps(10)
+
+. 
+. *** add learners for E[Y|X] using full stacking via pystacked
+. ddml E[Y|X,Z]: pystacked $Y $X || method(ols) ///
+>         || method(ols) xvars($Xpoly) ///
+>         || method(lassocv) xvars(c.($X)##c.($X)) ///
+>         || method(ridgecv) xvars(c.($X)##c.($X)) ///
+>     || method(rf) opt(n_estimators(500) min_samples_leaf(20) random_state(720)) ///
+>         || method(nnet) opt(hidden_layer_sizes(50 50 50 50) alpha(0) random_state(720)), ///
+>         njobs(4)
+Learner Y1_pystacked added successfully.
+
+. 
+. *** add learners for E[D|X] using full stacking via pystacked
+. ddml E[D|X,Z]: pystacked $D $X || method(logit) ///
+>         || method(logit) xvars($Xpoly) ///
+>         || method(lassocv) xvars(c.($X)##c.($X)) ///
+>         || method(ridgecv) xvars(c.($X)##c.($X)) ///
+>     || method(rf) opt(n_estimators(500) min_samples_leaf(20) random_state(720)) ///
+>         || method(nnet) opt(hidden_layer_sizes(50 50 50 50) alpha(0) random_state(720)), ///
+>         njobs(4) type(class)
+Learner D1_pystacked added successfully.
+
+. 
+. *** add learners for E[Z|X] using full stacking via pystacked
+. ddml E[Z|X]: pystacked $Z $X || method(logit) ///
+>         || method(logit) xvars($Xpoly) ///
+>         || method(lassocv) xvars(c.($X)##c.($X)) ///
+>         || method(ridgecv) xvars(c.($X)##c.($X)) ///
+>     || method(rf) opt(n_estimators(500) min_samples_leaf(20) random_state(720)) ///
+>         || method(nnet) opt(hidden_layer_sizes(50 50 50 50) alpha(0) random_state(720)), ///
+>         njobs(4) type(class)
+Learner Z1_pystacked added successfully.
+
+.         
+. ** get info on model specification
+. ddml describe
+
+Model:                  interactiveiv, crossfit folds k=5, resamples r=10
+Mata global (mname):    m0
+Dependent variable (Y): net_tfa
+ net_tfa learners:      Y1_pystacked
+D equations (1):        p401
+ p401 learners:         D1_pystacked
+Z equations (1):        e401
+ e401 learners:         Z1_pystacked
+
+. 
+. ** cross-fitting
+. ddml crossfit 
+Cross-fitting E[y|X,Z] equation: net_tfa
+Resample 1...
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Resample 2...
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Resample 3...
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Resample 4...
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Resample 5...
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Resample 6...
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Resample 7...
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Resample 8...
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Resample 9...
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Resample 10...
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting E[D|X,Z] equation: p401
+Resample 1...
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Resample 2...
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Resample 3...
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Resample 4...
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Resample 5...
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Resample 6...
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Resample 7...
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Resample 8...
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Resample 9...
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Resample 10...
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Cross-fitting E[Z|X]: e401
+Resample 1...
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Resample 2...
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Resample 3...
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Resample 4...
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Resample 5...
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Resample 6...
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Resample 7...
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Resample 8...
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Resample 9...
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+Resample 10...
+Cross-fitting fold 1 2 3 4 5 ...completed cross-fitting
+
+. 
+. *** Estimation results
+. ddml estimate, allcombos robust
+only one possible combination of specifications; allcombos option ignored
+
+
+Model:                  interactiveiv, crossfit folds k=5, resamples r=10
+Mata global (mname):    m0
+Dependent variable (Y): net_tfa
+ net_tfa learners:      Y1_pystacked
+D equations (1):        p401
+ p401 learners:         D1_pystacked
+Z equations (1):        e401
+ e401 learners:         Z1_pystacked
+
+DDML estimation results (LATE):
+spec  r  Y(0) learner  Y(1) learner  D(0) learner  D(1) learner         b        SE      Z learner
+  st  1  Y1_pystacked  Y1_pystacked  D1_pystacked  D1_pystacked 11889.137 (1648.420)  Z1_pystacked
+  st  2  Y1_pystacked  Y1_pystacked  D1_pystacked  D1_pystacked 11467.168 (1644.840)  Z1_pystacked
+  st  3  Y1_pystacked  Y1_pystacked  D1_pystacked  D1_pystacked 11529.215 (1703.332)  Z1_pystacked
+  st  4  Y1_pystacked  Y1_pystacked  D1_pystacked  D1_pystacked 12992.966 (1744.708)  Z1_pystacked
+  st  5  Y1_pystacked  Y1_pystacked  D1_pystacked  D1_pystacked 11831.284 (1685.363)  Z1_pystacked
+  st  6  Y1_pystacked  Y1_pystacked  D1_pystacked  D1_pystacked 10832.709 (1863.598)  Z1_pystacked
+  st  7  Y1_pystacked  Y1_pystacked  D1_pystacked  D1_pystacked 13139.000 (1910.346)  Z1_pystacked
+  st  8  Y1_pystacked  Y1_pystacked  D1_pystacked  D1_pystacked 11280.596 (1615.898)  Z1_pystacked
+  st  9  Y1_pystacked  Y1_pystacked  D1_pystacked  D1_pystacked 10996.602 (1785.679)  Z1_pystacked
+  st 10  Y1_pystacked  Y1_pystacked  D1_pystacked  D1_pystacked 14469.346 (2885.651)  Z1_pystacked
+
+Mean/med Y(0) learner  Y(1) learner  D(0) learner  D(1) learner         b        SE      Z learner
+  st mn  Y1_pystacked  Y1_pystacked  D1_pystacked  D1_pystacked 12042.802 (1947.792)  Z1_pystacked
+  st md  Y1_pystacked  Y1_pystacked  D1_pystacked  D1_pystacked 11680.249 (1813.860)  Z1_pystacked
+
+Median over 10 stacking resamples (LATE)
+E[y|X,Z=0]   = Y1_pystacked0                       Number of obs   =      9915
+E[y|X,Z=1]   = Y1_pystacked1
+E[D|X,Z=0]   = D1_pystacked0
+E[D|X,Z=1]   = D1_pystacked1
+E[Z|X]       = Z1_pystacked
+------------------------------------------------------------------------------
+             |               Robust
+     net_tfa | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        p401 |   11680.25    1813.86     6.44   0.000      8125.15    15235.35
+------------------------------------------------------------------------------
+Stacking final estimator: nnls1
+
+Summary over 10 resamples:
+       D eqn      mean       min       p25       p50       p75       max
+        p401    1.20e+04  1.08e+04  1.13e+04  1.17e+04  1.30e+04  1.45e+04
+
+. 
+. timer off 1
+
+. timer list
+   1:   8207.22 /        1 =    8207.2200
+
+. timer clear
+
+. 
+. log close
+      name:  <unnamed>
+       log:  C:\Users\chansen1\Documents\GitHub\NW2022_1Day\Stata Code\401kLATE.txt
+  log type:  text
+ closed on:  27 Jun 2024, 20:25:38
+----------------------------------------------------------------------------------------------------------
